@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>INLD यूथ विंग — सदस्यता कार्ड जनरेटर</title>
+  <meta name="description" content="इंडियन नेशनल लोकदल (INLD) यूथ विंग सदस्यता कार्ड जनरेटर। अपनी फ़ोटो और जानकारी भरें, कार्ड बनाएं और डाउनलोड करें।">
+  <link rel="icon" type="image/png" href="/assets/logo_img.png">
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+
+  <!-- Top Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-wrapper">
+        <img src="/assets/logo_img.png" alt="INLD Logo" class="brand-emblem">
+        <div class="brand-text">
+          <h1>
+            <span class="hindi-title">INLD यूथ विंग — सदस्यता कार्ड जनरेटर</span>
+          </h1>
+          <p class="header-sub">अपनी फ़ोटो और जानकारी भरें, कार्ड बनेगा — फिर डाउनलोड करके WhatsApp नंबर पर भेजें।</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button type="button" id="btnFillSampleQuick" class="btn-pill btn-gold">
+          ⚡ नमूना भरें (Sample Data)
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="page-container">
+
+    <!-- Form Container -->
+    <div class="card-form-wrapper" id="formWrapper">
+      <form id="cardForm" autocomplete="off">
+        
+        <!-- Field 1: Photo -->
+        <div class="field-group">
+          <label class="field-label" for="photoInput">अपनी फ़ोटो चुनें</label>
+          <div class="photo-upload-row">
+            <input type="file" id="photoInput" accept="image/*">
+            <div class="photo-thumb-mini" id="photoThumbContainer" style="display:none;">
+              <img id="photoThumb" alt="Preview">
+            </div>
+          </div>
+          <!-- Optional zoom/pan adjustment slider when photo is chosen -->
+          <div class="photo-fine-tune" id="photoFineTune" style="display:none;">
+            <div class="slider-row">
+              <span>ज़ूम (Zoom):</span>
+              <input type="range" id="zoomSlider" min="0.6" max="2.5" step="0.05" value="1.0">
+              <span id="zoomVal">1.0x</span>
+            </div>
+            <div class="slider-row">
+              <span>ऊपर/नीचे (Pan):</span>
+              <input type="range" id="offsetYSlider" min="-50" max="50" step="1" value="0">
+              <span id="offsetYVal">0%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Field 2: Name -->
+        <div class="field-group">
+          <label class="field-label" for="inputName">नाम (Name)</label>
+          <input type="text" id="inputName" placeholder="पूरा नाम" required>
+        </div>
+
+        <!-- Field 3: Father's Name -->
+        <div class="field-group">
+          <label class="field-label" for="inputFather">पिताजी का नाम (Father's Name)</label>
+          <input type="text" id="inputFather" placeholder="पिताजी का नाम" required>
+        </div>
+
+        <!-- Field 4: Mobile No -->
+        <div class="field-group">
+          <label class="field-label" for="inputMobile">मोबाइल नंबर (Mobile No)</label>
+          <input type="tel" id="inputMobile" placeholder="मोबाइल नंबर" required maxlength="15">
+        </div>
+
+        <!-- Field 5: State -->
+        <div class="field-group">
+          <label class="field-label" for="inputState">राज्य (State)</label>
+          <input type="text" id="inputState" value="Haryana">
+        </div>
+
+        <!-- Field 6: District -->
+        <div class="field-group">
+          <label class="field-label" for="inputDistrict">ज़िला (District)</label>
+          <input type="text" id="inputDistrict" placeholder="ज़िला" required>
+        </div>
+
+        <!-- Field 7: Constituency -->
+        <div class="field-group">
+          <label class="field-label" for="inputConstituency">विधानसभा क्षेत्र (Constituency)</label>
+          <input type="text" id="inputConstituency" placeholder="विधानसभा क्षेत्र" required>
+        </div>
+
+        <!-- Field 8: Constituency Code -->
+        <div class="field-group">
+          <label class="field-label" for="inputConscode">Constituency Code</label>
+          <input type="text" id="inputConscode" placeholder="जैसे 45 या SRS">
+        </div>
+
+        <!-- Field 9: Designation -->
+        <div class="field-group">
+          <label class="field-label" for="inputDesignation">पद/नाम (Designation)</label>
+          <input type="text" id="inputDesignation" value="Yuva INLD Karyakarta">
+        </div>
+
+        <!-- Field 10: DOB -->
+        <div class="field-group">
+          <label class="field-label" for="inputDob">जन्म तिथि (DOB)</label>
+          <input type="text" id="inputDob" placeholder="DD/MM/YYYY">
+        </div>
+
+        <!-- Field 11: Booth No -->
+        <div class="field-group">
+          <label class="field-label" for="inputBooth">बूथ नंबर (Booth No)</label>
+          <input type="text" id="inputBooth" placeholder="बूथ नंबर">
+        </div>
+
+        <!-- Divider -->
+        <hr class="form-divider">
+
+        <!-- Field 12: WhatsApp Number -->
+        <div class="field-group">
+          <label class="field-label" for="whatsappNumber">कार्ड किस WhatsApp नंबर पर भेजना है?</label>
+          <input type="tel" id="whatsappNumber" placeholder="जैसे 919485555947 (country code सहित)">
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" class="btn-card-create" id="btnSubmitCard">
+          कार्ड बनाएं
+        </button>
+
+      </form>
+    </div>
+
+    <!-- Generated ID Card Preview & Actions Section (Revealed on click) -->
+    <div class="preview-result-wrapper" id="previewResultSection" style="display: none;">
+      
+      <div class="preview-card-box">
+        
+        <div class="preview-header-bar">
+          <div class="preview-badge">
+            <span class="dot-live"></span> आपका पहचान पत्र तैयार है! (ID Card Generated)
+          </div>
+          <div class="tab-pill-group">
+            <button type="button" class="tab-btn active" id="tabFront">
+              सामने (Front)
+            </button>
+            <button type="button" class="tab-btn" id="tabBack">
+              पीछे (Back)
+            </button>
+          </div>
+        </div>
+
+        <!-- The ID Card Canvas Container -->
+        <div class="canvas-viewport" id="cardStage">
+          <canvas id="idCardCanvas"></canvas>
+        </div>
+
+        <div class="card-dimensions-info">
+          <span>📐 1280 × 853 px • Ultra HD 300 DPI Ready</span>
+          <button type="button" id="btnFullscreenView" class="btn-small-link">
+            🔍 बड़ा देखें (Zoom)
+          </button>
+        </div>
+
+        <!-- Action / Download Buttons Grid -->
+        <div class="actions-grid">
+          <button type="button" id="btnDownloadPng" class="btn-dl btn-png">
+            📥 HD PNG डाउनलोड करें
+          </button>
+          <button type="button" id="btnDownloadPdf" class="btn-dl btn-pdf">
+            📄 PDF डाउनलोड करें
+          </button>
+          <button type="button" id="btnPrintCard" class="btn-dl btn-print">
+            🖨️ प्रिंट करें (Print)
+          </button>
+          <button type="button" id="btnCopyImage" class="btn-dl btn-copy">
+            📋 कार्ड कॉपी करें
+          </button>
+        </div>
+
+        <!-- WhatsApp Direct Send Card -->
+        <div class="whatsapp-action-box">
+          <div class="wa-box-header">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.669-.699c.969.53 1.771.82 2.791.82 3.18 0 5.767-2.586 5.768-5.766 0-3.18-2.587-5.767-5.768-5.767zm7.644 5.766c-.002 4.225-3.441 7.663-7.667 7.663-1.341 0-2.613-.35-3.722-.96l-4.14 1.084 1.107-4.043c-.702-1.168-1.074-2.517-1.076-3.744.002-4.226 3.441-7.665 7.668-7.665 4.226 0 7.665 3.44 7.667 7.665z"/>
+            </svg>
+            <span>WhatsApp पर कार्ड भेजें</span>
+          </div>
+          <div class="wa-action-row">
+            <button type="button" id="btnShareWhatsapp" class="btn-whatsapp-direct">
+              WhatsApp पर भेजें (Send to WhatsApp)
+            </button>
+          </div>
+          <p class="wa-note">डाउनलोड करने के बाद WhatsApp खुलेगा — फ़ोटो संलग्न करके भेज सकते हैं।</p>
+        </div>
+
+        <!-- Back to form button -->
+        <button type="button" id="btnBackToForm" class="btn-back-form">
+          ✏️ जानकारी बदलें / दूसरा कार्ड बनाएं (Edit Details)
+        </button>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Fullscreen Modal / Lightbox -->
+  <div class="modal-overlay" id="zoomModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>इनेलो पहचान पत्र पूर्वावलोकन (Full Resolution)</h3>
+        <button type="button" class="modal-close-btn" id="modalClose">&times;</button>
+      </div>
+      <div class="modal-body">
+        <img id="modalImg" alt="Enlarged ID Card">
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast-notice" id="toastNotice">
+    <span id="toastMsg">पहचान पत्र सफलतापूर्वक तैयार हो गया!</span>
+  </div>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <div class="footer-content">
+      <div class="footer-motto">
+        चौधरी देवी लाल अमर रहें • इंडियन नेशनल लोकदल
+      </div>
+      <div class="footer-copy">
+        © 2026 इंडियन नेशनल लोकदल (INLD) यूथ विंग। सर्वाधिकार सुरक्षित।
+      </div>
+    </div>
+  </footer>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
