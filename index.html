@@ -35,99 +35,143 @@
 
     <!-- Form Container -->
     <div class="card-form-wrapper" id="formWrapper">
-      <form id="cardForm" autocomplete="off">
+      <form id="cardForm" autocomplete="off" novalidate>
         
-        <!-- Field 1: Photo -->
-        <div class="field-group">
-          <label class="field-label" for="photoInput">अपनी फ़ोटो चुनें</label>
+        <!-- Field 1: Photo Upload (Clean, no zoom/pan sliders) -->
+        <div class="field-group" id="group-photo">
+          <label class="field-label" for="photoInput">
+            अपनी फ़ोटो चुनें <span class="req-star">*</span>
+          </label>
           <div class="photo-upload-row">
             <input type="file" id="photoInput" accept="image/*">
             <div class="photo-thumb-mini" id="photoThumbContainer" style="display:none;">
               <img id="photoThumb" alt="Preview">
+              <button type="button" id="btnRemovePhoto" class="btn-remove-thumb" title="फ़ोटो हटाएं">&times;</button>
             </div>
           </div>
-          <!-- Optional zoom/pan adjustment slider when photo is chosen -->
-          <div class="photo-fine-tune" id="photoFineTune" style="display:none;">
-            <div class="slider-row">
-              <span>ज़ूम (Zoom):</span>
-              <input type="range" id="zoomSlider" min="0.6" max="2.5" step="0.05" value="1.0">
-              <span id="zoomVal">1.0x</span>
-            </div>
-            <div class="slider-row">
-              <span>ऊपर/नीचे (Pan):</span>
-              <input type="range" id="offsetYSlider" min="-50" max="50" step="1" value="0">
-              <span id="offsetYVal">0%</span>
-            </div>
-          </div>
+          <div class="field-error" id="error-photoInput"></div>
         </div>
 
         <!-- Field 2: Name -->
-        <div class="field-group">
-          <label class="field-label" for="inputName">नाम (Name)</label>
-          <input type="text" id="inputName" placeholder="पूरा नाम" required>
+        <div class="field-group" id="group-name">
+          <label class="field-label" for="inputName">
+            नाम (Name) <span class="req-star">*</span>
+          </label>
+          <input type="text" id="inputName" placeholder="पूरा नाम">
+          <div class="field-error" id="error-inputName"></div>
         </div>
 
         <!-- Field 3: Father's Name -->
-        <div class="field-group">
-          <label class="field-label" for="inputFather">पिताजी का नाम (Father's Name)</label>
-          <input type="text" id="inputFather" placeholder="पिताजी का नाम" required>
+        <div class="field-group" id="group-father">
+          <label class="field-label" for="inputFather">
+            पिताजी का नाम (Father's Name) <span class="req-star">*</span>
+          </label>
+          <input type="text" id="inputFather" placeholder="पिताजी का नाम">
+          <div class="field-error" id="error-inputFather"></div>
         </div>
 
-        <!-- Field 4: Mobile No -->
-        <div class="field-group">
-          <label class="field-label" for="inputMobile">मोबाइल नंबर (Mobile No)</label>
-          <input type="tel" id="inputMobile" placeholder="मोबाइल नंबर" required maxlength="15">
+        <!-- Field 4: Mobile No with Country Code -->
+        <div class="field-group" id="group-mobile">
+          <label class="field-label" for="inputMobile">
+            मोबाइल नंबर (Mobile No) <span class="req-star">*</span>
+          </label>
+          <div class="input-phone-group">
+            <select id="selectMobileCountry" class="select-country-code" title="देश कोड चुनें"></select>
+            <input type="tel" id="inputMobile" placeholder="मोबाइल नंबर" maxlength="15">
+          </div>
+          <div class="field-error" id="error-inputMobile"></div>
         </div>
 
-        <!-- Field 5: State -->
-        <div class="field-group">
-          <label class="field-label" for="inputState">राज्य (State)</label>
-          <input type="text" id="inputState" value="Haryana">
+        <!-- Field 5: State Dropdown -->
+        <div class="field-group" id="group-state">
+          <label class="field-label" for="selectState">
+            राज्य (State) <span class="req-star">*</span>
+          </label>
+          <select id="selectState">
+            <option value="Haryana" selected>Haryana (हरियाणा)</option>
+            <option value="Punjab">Punjab (पंजाब)</option>
+            <option value="Delhi">Delhi (दिल्ली)</option>
+            <option value="Rajasthan">Rajasthan (राजस्थान)</option>
+            <option value="Uttar Pradesh">Uttar Pradesh (उत्तर प्रदेश)</option>
+            <option value="Chandigarh">Chandigarh (चंडीगढ़)</option>
+            <option value="Himachal Pradesh">Himachal Pradesh (हिमाचल प्रदेश)</option>
+            <option value="Uttarakhand">Uttarakhand (उत्तराखंड)</option>
+            <option value="Madhya Pradesh">Madhya Pradesh (मध्य प्रदेश)</option>
+            <option value="Bihar">Bihar (बिहार)</option>
+            <option value="Maharashtra">Maharashtra (महाराष्ट्र)</option>
+            <option value="Gujarat">Gujarat (गुजरात)</option>
+            <option value="Other">Other (अन्य राज्य)</option>
+          </select>
+          <div class="field-error" id="error-selectState"></div>
         </div>
 
-        <!-- Field 6: District -->
-        <div class="field-group">
-          <label class="field-label" for="inputDistrict">ज़िला (District)</label>
-          <input type="text" id="inputDistrict" placeholder="ज़िला" required>
+        <!-- Field 6: District Dropdown (Dynamic based on State) -->
+        <div class="field-group" id="group-district">
+          <label class="field-label" for="selectDistrict">
+            ज़िला (District) <span class="req-star">*</span>
+          </label>
+          <select id="selectDistrict"></select>
+          <div class="field-error" id="error-selectDistrict"></div>
         </div>
 
         <!-- Field 7: Constituency -->
-        <div class="field-group">
-          <label class="field-label" for="inputConstituency">विधानसभा क्षेत्र (Constituency)</label>
-          <input type="text" id="inputConstituency" placeholder="विधानसभा क्षेत्र" required>
+        <div class="field-group" id="group-constituency">
+          <label class="field-label" for="inputConstituency">
+            विधानसभा क्षेत्र (Constituency) <span class="req-star">*</span>
+          </label>
+          <input type="text" id="inputConstituency" placeholder="विधानसभा क्षेत्र">
+          <div class="field-error" id="error-inputConstituency"></div>
         </div>
 
         <!-- Field 8: Constituency Code -->
-        <div class="field-group">
-          <label class="field-label" for="inputConscode">Constituency Code</label>
+        <div class="field-group" id="group-conscode">
+          <label class="field-label" for="inputConscode">
+            Constituency Code <span class="req-star">*</span>
+          </label>
           <input type="text" id="inputConscode" placeholder="जैसे 45 या SRS">
+          <div class="field-error" id="error-inputConscode"></div>
         </div>
 
         <!-- Field 9: Designation -->
-        <div class="field-group">
-          <label class="field-label" for="inputDesignation">पद/नाम (Designation)</label>
+        <div class="field-group" id="group-designation">
+          <label class="field-label" for="inputDesignation">
+            पद/नाम (Designation) <span class="req-star">*</span>
+          </label>
           <input type="text" id="inputDesignation" value="Yuva INLD Karyakarta">
+          <div class="field-error" id="error-inputDesignation"></div>
         </div>
 
         <!-- Field 10: DOB -->
-        <div class="field-group">
-          <label class="field-label" for="inputDob">जन्म तिथि (DOB)</label>
-          <input type="text" id="inputDob" placeholder="DD/MM/YYYY">
+        <div class="field-group" id="group-dob">
+          <label class="field-label" for="inputDob">
+            जन्म तिथि (DOB) <span class="req-star">*</span>
+          </label>
+          <input type="text" id="inputDob" placeholder="DD/MM/YYYY" maxlength="10">
+          <div class="field-error" id="error-inputDob"></div>
         </div>
 
         <!-- Field 11: Booth No -->
-        <div class="field-group">
-          <label class="field-label" for="inputBooth">बूथ नंबर (Booth No)</label>
+        <div class="field-group" id="group-booth">
+          <label class="field-label" for="inputBooth">
+            बूथ नंबर (Booth No) <span class="req-star">*</span>
+          </label>
           <input type="text" id="inputBooth" placeholder="बूथ नंबर">
+          <div class="field-error" id="error-inputBooth"></div>
         </div>
 
         <!-- Divider -->
         <hr class="form-divider">
 
-        <!-- Field 12: WhatsApp Number -->
-        <div class="field-group">
-          <label class="field-label" for="whatsappNumber">कार्ड किस WhatsApp नंबर पर भेजना है?</label>
-          <input type="tel" id="whatsappNumber" placeholder="जैसे 919485555947 (country code सहित)">
+        <!-- Field 12: WhatsApp Number with Country Code -->
+        <div class="field-group" id="group-whatsapp">
+          <label class="field-label" for="whatsappNumber">
+            कार्ड किस WhatsApp नंबर पर भेजना है? <span class="req-star">*</span>
+          </label>
+          <div class="input-phone-group">
+            <select id="selectWaCountry" class="select-country-code" title="देश कोड चुनें"></select>
+            <input type="tel" id="whatsappNumber" placeholder="WhatsApp नंबर दर्ज करें" maxlength="15">
+          </div>
+          <div class="field-error" id="error-whatsappNumber"></div>
         </div>
 
         <!-- Submit Button -->
