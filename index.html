@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>INLD यूथ विंग — सदस्यता कार्ड जनरेटर</title>
-  <meta name="description" content="इंडियन नेशनल लोकदल (INLD) यूथ विंग सदस्यता कार्ड जनरेटर। अपनी फ़ोटो और जानकारी भरें, कार्ड बनाएं और डाउनलोड करें।">
+  <title>इंडियन नेशनल लोकदल (Indian National Lokdal) — सदस्यता कार्ड जनरेटर</title>
+  <meta name="description" content="इंडियन नेशनल लोकदल (Indian National Lokdal) सदस्यता कार्ड जनरेटर। अपनी फ़ोटो और जानकारी भरें, कार्ड बनाएं और डाउनलोड करें।">
   <link rel="icon" type="image/png" href="/assets/logo_img.png">
   <link rel="stylesheet" href="/src/style.css">
 </head>
@@ -17,7 +17,7 @@
         <img src="/assets/logo_img.png" alt="INLD Logo" class="brand-emblem">
         <div class="brand-text">
           <h1>
-            <span class="hindi-title">INLD यूथ विंग — सदस्यता कार्ड जनरेटर</span>
+            <span class="hindi-title">इंडियन नेशनल लोकदल (Indian National Lokdal)</span>
           </h1>
           <p class="header-sub">अपनी फ़ोटो और जानकारी भरें, कार्ड बनेगा — फिर डाउनलोड करके WhatsApp नंबर पर भेजें।</p>
         </div>
@@ -137,7 +137,7 @@
           <label class="field-label" for="inputDesignation">
             पद/नाम (Designation) <span class="req-star">*</span>
           </label>
-          <input type="text" id="inputDesignation" value="Yuva INLD Karyakarta">
+          <input type="text" id="inputDesignation" value="INLD Karyakarta">
           <div class="field-error" id="error-inputDesignation"></div>
         </div>
 
@@ -150,7 +150,16 @@
           <div class="field-error" id="error-inputDob"></div>
         </div>
 
-        <!-- Field 11: Booth No -->
+        <!-- Field 11: Caste -->
+        <div class="field-group" id="group-caste">
+          <label class="field-label" for="inputCaste">
+            जाति / वर्ग (Caste) <span class="req-star">*</span>
+          </label>
+          <input type="text" id="inputCaste" placeholder="जैसे Gen(Brahmin), Jat, OBC...">
+          <div class="field-error" id="error-inputCaste"></div>
+        </div>
+
+        <!-- Field 12: Booth No -->
         <div class="field-group" id="group-booth">
           <label class="field-label" for="inputBooth">
             बूथ नंबर (Booth No) <span class="req-star">*</span>
@@ -281,7 +290,7 @@
         चौधरी देवी लाल अमर रहें • इंडियन नेशनल लोकदल
       </div>
       <div class="footer-copy">
-        © 2026 इंडियन नेशनल लोकदल (INLD) यूथ विंग। सर्वाधिकार सुरक्षित।
+        © 2026 इंडियन नेशनल लोकदल (Indian National Lokdal). सर्वाधिकार सुरक्षित।
       </div>
     </div>
   </footer>

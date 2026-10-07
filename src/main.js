@@ -115,6 +115,7 @@ const elements = {
   inputConscode: document.getElementById('inputConscode'),
   inputDesignation: document.getElementById('inputDesignation'),
   inputDob: document.getElementById('inputDob'),
+  inputCaste: document.getElementById('inputCaste'),
   inputBooth: document.getElementById('inputBooth'),
   selectWaCountry: document.getElementById('selectWaCountry'),
   whatsappNumber: document.getElementById('whatsappNumber'),
@@ -191,8 +192,8 @@ function getFormData() {
     mobile: mobileVal,
     mobileCountryCode: elements.selectMobileCountry.value,
     dob: elements.inputDob.value.trim(),
-    caste: 'Gen(Brahmin)', // default from sample card
-    designation: elements.inputDesignation.value.trim() || 'Yuva INLD Karyakarta',
+    caste: elements.inputCaste.value.trim() || 'Gen(Brahmin)',
+    designation: elements.inputDesignation.value.trim() || 'INLD Karyakarta',
     state: elements.selectState.value.trim() || 'Haryana',
     district: elements.selectDistrict.value.trim(),
     constituency: elements.inputConstituency.value.trim(),
@@ -356,7 +357,15 @@ function validateForm() {
     clearFieldError('inputDob');
   }
 
-  // 11. Booth No validation
+  // 11. Caste validation
+  const casteVal = elements.inputCaste.value.trim();
+  if (!casteVal) {
+    markError('inputCaste', 'जाति / वर्ग (Caste) दर्ज करना अनिवार्य है');
+  } else {
+    clearFieldError('inputCaste');
+  }
+
+  // 12. Booth No validation
   const boothVal = elements.inputBooth.value.trim();
   if (!boothVal) {
     markError('inputBooth', 'बूथ नंबर दर्ज करना अनिवार्य है');
@@ -364,7 +373,7 @@ function validateForm() {
     clearFieldError('inputBooth');
   }
 
-  // 12. WhatsApp Number validation
+  // 13. WhatsApp Number validation
   const waVal = elements.whatsappNumber.value.trim();
   const waCountry = elements.selectWaCountry.value;
   if (!waVal) {
@@ -405,7 +414,7 @@ function loadSampleData() {
   [
     'photoInput', 'inputName', 'inputFather', 'inputMobile', 'selectState',
     'selectDistrict', 'inputConstituency', 'inputConscode', 'inputDesignation',
-    'inputDob', 'inputBooth', 'whatsappNumber'
+    'inputDob', 'inputCaste', 'inputBooth', 'whatsappNumber'
   ].forEach(clearFieldError);
 
   elements.inputName.value = 'Ravi Kant';
@@ -418,6 +427,7 @@ function loadSampleData() {
   elements.inputConscode.value = '45';
   elements.inputDesignation.value = 'State Social Media Coordinator';
   elements.inputDob.value = '20/05/1973';
+  elements.inputCaste.value = 'Gen(Brahmin)';
   elements.inputBooth.value = '30';
   elements.selectWaCountry.value = '+91';
   elements.whatsappNumber.value = '9815395397';
@@ -523,7 +533,7 @@ function setupEventListeners() {
   // Clear errors on field input/change
   const textFields = [
     'inputName', 'inputFather', 'inputConstituency', 'inputConscode',
-    'inputDesignation', 'inputBooth', 'selectDistrict'
+    'inputDesignation', 'inputCaste', 'inputBooth', 'selectDistrict'
   ];
   textFields.forEach((id) => {
     const el = document.getElementById(id);
@@ -678,6 +688,7 @@ function setupEventListeners() {
       `📍 *ज़िला:* ${data.district}\n` +
       `📍 *विधानसभा:* ${data.constituency}\n` +
       `🎖️ *पद:* ${data.designation}\n` +
+      `🧬 *जाति:* ${data.caste}\n` +
       `🆔 *सदस्यता क्रमांक:* ${data.membershipNo}\n\n` +
       `_ताऊ देवी लाल अमर रहें • जय जवान जय किसान_`
     );
