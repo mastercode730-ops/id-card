@@ -7,7 +7,8 @@ const imageCache = {
   leader3: null, // Om Prakash Chautala (left 2)
   logoWhite: null,
   logoGreen: null,
-  samplePhoto: null
+  samplePhoto: null,
+  backCardStatic: null
 };
 
 // Helper to load an image
@@ -29,7 +30,8 @@ export async function preloadAssets() {
     { key: 'leader3', src: '/assets/op_chautala.jpg' },
     { key: 'logoWhite', src: '/assets/logo_img.png' },
     { key: 'logoGreen', src: '/assets/logo_green_img.png' },
-    { key: 'samplePhoto', src: '/assets/sample_member_photo.jpg' }
+    { key: 'samplePhoto', src: '/assets/sample_member_photo.jpg' },
+    { key: 'backCardStatic', src: '/assets/sample_back_card.jpg' }
   ];
 
   await Promise.all(
@@ -403,6 +405,22 @@ export async function renderBackCard(canvas, data) {
 
   ctx.clearRect(0, 0, W, H);
 
+  // If the static uploaded back card image is available, draw it pixel-perfect
+  const backImg = imageCache.backCardStatic;
+  if (backImg && backImg.naturalWidth) {
+    ctx.save();
+    drawRoundRect(ctx, 0, 0, W, H, 24);
+    ctx.clip();
+    ctx.drawImage(backImg, 0, 0, W, H);
+
+    // Outer border of entire card
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#0b4d2e';
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
   // Outer Card Background with rounded corners
   ctx.save();
   drawRoundRect(ctx, 0, 0, W, H, 24);
@@ -451,8 +469,8 @@ export async function renderBackCard(canvas, data) {
   ctx.save();
   ctx.textAlign = 'left';
   ctx.fillStyle = '#0b4d2e';
-  ctx.font = '800 24px "Outfit", Arial, sans-serif';
-  ctx.fillText('सदस्यता नियम एवं निर्देश (TERMS & CONDITIONS)', leftX, 160);
+  ctx.font = '800 24px "Noto Sans Devanagari", Arial, sans-serif';
+  ctx.fillText('निर्देश एवं उपयोग की शर्तें', leftX, 160);
 
   ctx.strokeStyle = '#d4af37';
   ctx.lineWidth = 2.5;
@@ -462,17 +480,17 @@ export async function renderBackCard(canvas, data) {
   ctx.stroke();
 
   const terms = [
-    '1. यह पहचान पत्र केवल इंडियन नेशनल लोकदल के पंजीकृत सदस्य के लिए मान्य है।',
-    '2. यह कार्ड अहस्तांतरणीय (Non-Transferable) है। इसका दुरुपयोग दंडनीय है।',
-    '3. पार्टी बैठकों, सम्मेलनों एवं मतदान केंद्रों पर यह पहचान पत्र साथ रखना अनिवार्य है।',
-    '4. कार्ड खोने अथवा क्षतिग्रस्त होने की स्थिति में तुरंत पार्टी कार्यालय को सूचित करें।',
-    '5. सदस्यता की प्रामाणिकता हेतु सामने दिए गए QR कोड को किसी भी स्कैनर से जांचें।'
+    '1. यह कार्ड इंडियन नेशनल लोकदल (INLD) की संपत्ति है और इसे किसी अन्य व्यक्ति को हस्तांतरित नहीं किया जा सकता।',
+    '2. यह कार्ड धारक की स्वेच्छा और सहमति से जारी किया गया है तथा इसका उपयोग केवल उस व्यक्ति द्वारा किया जा सकता है, जिसका नाम इस पर अंकित है।',
+    '3. यह केवल पार्टी कार्यकर्ता पहचान-पत्र है—यह सरकारी पहचान-पत्र, कानूनी पहचान दस्तावेज़ या पहचान अथवा पते का प्रमाण नहीं है।',
+    '4. कार्डधारक को INLD के नियमों का पालन करना होगा तथा कार्ड के खोने, चोरी होने या दुरुपयोग की सूचना तुरंत INLD मुख्यालय को देनी होगी।',
+    '5. दुरुपयोग या नियमों के उल्लंघन की स्थिति में INLD इस कार्ड को निलंबित या रद्द कर सकता है। यदि यह कार्ड मिले, तो कृपया इसे INLD मुख्यालय को लौटा दें।'
   ];
 
   let ty = 215;
   terms.forEach((t) => {
     ctx.fillStyle = '#1e293b';
-    ctx.font = '500 19px "Noto Sans Devanagari", "Inter", sans-serif';
+    ctx.font = '500 17px "Noto Sans Devanagari", "Inter", sans-serif';
     ctx.fillText(t, leftX, ty);
     ty += 46;
   });

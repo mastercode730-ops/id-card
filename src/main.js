@@ -82,7 +82,7 @@ const STATE_DISTRICT_MAP = {
 
 // Application State
 const state = {
-  activeTab: 'front', // 'front' | 'back'
+  activeTab: 'both', // 'both' | 'front' | 'back'
   userPhoto: null,
   isRendering: false,
   sampleAssets: null,
@@ -94,8 +94,12 @@ const elements = {
   form: document.getElementById('cardForm'),
   formWrapper: document.getElementById('formWrapper'),
   previewResultSection: document.getElementById('previewResultSection'),
-  canvas: document.getElementById('idCardCanvas'),
-  cardStage: document.getElementById('cardStage'),
+  dualCardsContainer: document.getElementById('dualCardsContainer'),
+  canvasFront: document.getElementById('idCardCanvasFront'),
+  canvasBack: document.getElementById('idCardCanvasBack'),
+  cardStageFront: document.getElementById('cardStageFront'),
+  cardStageBack: document.getElementById('cardStageBack'),
+  tabBoth: document.getElementById('tabBoth'),
   tabFront: document.getElementById('tabFront'),
   tabBack: document.getElementById('tabBack'),
 
@@ -123,13 +127,16 @@ const elements = {
   // Buttons
   btnSubmitCard: document.getElementById('btnSubmitCard'),
   btnFillSampleQuick: document.getElementById('btnFillSampleQuick'),
-  btnDownloadPng: document.getElementById('btnDownloadPng'),
+  btnDownloadBoth: document.getElementById('btnDownloadBoth'),
+  btnDownloadFrontQuick: document.getElementById('btnDownloadFrontQuick'),
+  btnDownloadBackQuick: document.getElementById('btnDownloadBackQuick'),
+  btnZoomFront: document.getElementById('btnZoomFront'),
+  btnZoomBack: document.getElementById('btnZoomBack'),
   btnDownloadPdf: document.getElementById('btnDownloadPdf'),
   btnPrintCard: document.getElementById('btnPrintCard'),
   btnCopyImage: document.getElementById('btnCopyImage'),
   btnShareWhatsapp: document.getElementById('btnShareWhatsapp'),
   btnBackToForm: document.getElementById('btnBackToForm'),
-  btnFullscreenView: document.getElementById('btnFullscreenView'),
 
   // Modal & Toast
   zoomModal: document.getElementById('zoomModal'),
@@ -389,18 +396,17 @@ function validateForm() {
   return { isValid, firstInvalidEl };
 }
 
-// Render Card Canvas
+// Render Card Canvases (Both Front & Back)
 async function updateCard() {
   if (state.isRendering) return;
   state.isRendering = true;
 
   try {
     const data = getFormData();
-    if (state.activeTab === 'front') {
-      await renderFrontCard(elements.canvas, data);
-    } else {
-      await renderBackCard(elements.canvas, data);
-    }
+    await Promise.all([
+      renderFrontCard(elements.canvasFront, data),
+      renderBackCard(elements.canvasBack, data)
+    ]);
   } catch (err) {
     console.error('Rendering error:', err);
   } finally {
@@ -591,41 +597,67 @@ function setupEventListeners() {
     }, 100);
   });
 
-  // Front / Back Tabs
-  elements.tabFront.addEventListener('click', () => {
-    state.activeTab = 'front';
-    elements.tabFront.classList.add('active');
-    elements.tabBack.classList.remove('active');
-    updateCard();
-  });
+  // Download canvas helper
+  function downloadCanvasImage(canvas, filename) {
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = canvas.toDataURL('image/png', 1.0);
+    link.click();
+  }
 
-  elements.tabBack.addEventListener('click', () => {
-    state.activeTab = 'back';
-    elements.tabBack.classList.add('active');
-    elements.tabFront.classList.remove('active');
-    updateCard();
-  });
+  // Tab switching helper
+  function setActiveTab(tab) {
+    state.activeTab = tab;
+    elements.tabBoth.classList.toggle('active', tab === 'both');
+    elements.tabFront.classList.toggle('active', tab === 'front');
+    elements.tabBack.classList.toggle('active', tab === 'back');
+
+    elements.dualCardsContainer.classList.remove('show-front-only', 'show-back-only');
+    if (tab === 'front') {
+      elements.dualCardsContainer.classList.add('show-front-only');
+    } else if (tab === 'back') {
+      elements.dualCardsContainer.classList.add('show-back-only');
+    }
+  }
+
+  // Front / Back / Both Tabs
+  elements.tabBoth.addEventListener('click', () => setActiveTab('both'));
+  elements.tabFront.addEventListener('click', () => setActiveTab('front'));
+  elements.tabBack.addEventListener('click', () => setActiveTab('back'));
 
   // Back to form button
   elements.btnBackToForm.addEventListener('click', () => {
     elements.formWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
-  // Download PNG
-  elements.btnDownloadPng.addEventListener('click', () => {
+  // Download Both Sides as HD PNG
+  elements.btnDownloadBoth.addEventListener('click', () => {
     const name = (elements.inputName.value.trim() || 'INLD_Member').replace(/\s+/g, '_');
-    const side = state.activeTab;
-    const link = document.createElement('a');
-    link.download = `${name}_INLD_Card_${side}.png`;
-    link.href = elements.canvas.toDataURL('image/png', 1.0);
-    link.click();
-    showToast('📥 HD PNG पहचान पत्र डाउनलोड हो गया!');
+    downloadCanvasImage(elements.canvasFront, `${name}_INLD_Front_Card.png`);
+    setTimeout(() => {
+      downloadCanvasImage(elements.canvasBack, `${name}_INLD_Back_Card.png`);
+      showToast('✨ दोनों साइड (Front & Back) HD PNG डाउनलोड हो गए!');
+    }, 350);
   });
 
-  // Download PDF
+  // Download Front Side PNG
+  elements.btnDownloadFrontQuick.addEventListener('click', () => {
+    const name = (elements.inputName.value.trim() || 'INLD_Member').replace(/\s+/g, '_');
+    downloadCanvasImage(elements.canvasFront, `${name}_INLD_Front_Card.png`);
+    showToast('📥 सामने का भाग (Front Side) डाउनलोड हो गया!');
+  });
+
+  // Download Back Side PNG
+  elements.btnDownloadBackQuick.addEventListener('click', () => {
+    const name = (elements.inputName.value.trim() || 'INLD_Member').replace(/\s+/g, '_');
+    downloadCanvasImage(elements.canvasBack, `${name}_INLD_Back_Card.png`);
+    showToast('📥 पीछे का भाग (Back Side) डाउनलोड हो गया!');
+  });
+
+  // Download 2-Page Full PDF (Front + Back)
   elements.btnDownloadPdf.addEventListener('click', async () => {
     try {
-      showToast('📄 PDF तैयार हो रहा है...');
+      showToast('📄 2-पेज सम्पूर्ण PDF तैयार हो रहा है...');
       const name = (elements.inputName.value.trim() || 'INLD_Member').replace(/\s+/g, '_');
 
       const pdf = new jsPDF({
@@ -634,10 +666,17 @@ function setupEventListeners() {
         format: [140, 93.3] // Standard Card Proportion in mm
       });
 
-      const imgData = elements.canvas.toDataURL('image/jpeg', 0.98);
-      pdf.addImage(imgData, 'JPEG', 0, 0, 140, 93.3);
-      pdf.save(`${name}_INLD_ID_Card.pdf`);
-      showToast('✓ प्रिंट-रेडी PDF डाउनलोड हो गया!');
+      // Page 1: Front
+      const frontData = elements.canvasFront.toDataURL('image/jpeg', 0.98);
+      pdf.addImage(frontData, 'JPEG', 0, 0, 140, 93.3);
+
+      // Page 2: Back
+      pdf.addPage([140, 93.3], 'landscape');
+      const backData = elements.canvasBack.toDataURL('image/jpeg', 0.98);
+      pdf.addImage(backData, 'JPEG', 0, 0, 140, 93.3);
+
+      pdf.save(`${name}_INLD_Full_ID_Card.pdf`);
+      showToast('✓ 2-पेज सम्पूर्ण PDF (Front + Back) डाउनलोड हो गया!');
     } catch (err) {
       console.error('PDF error:', err);
       showToast('PDF बनाने में त्रुटि हुई', false);
@@ -652,7 +691,8 @@ function setupEventListeners() {
   // Copy Image to Clipboard
   elements.btnCopyImage.addEventListener('click', async () => {
     try {
-      elements.canvas.toBlob(async (blob) => {
+      const targetCanvas = state.activeTab === 'back' ? elements.canvasBack : elements.canvasFront;
+      targetCanvas.toBlob(async (blob) => {
         if (!blob) return;
         await navigator.clipboard.write([
           new ClipboardItem({ 'image/png': blob })
@@ -680,7 +720,7 @@ function setupEventListeners() {
     const data = getFormData();
     const msg = encodeURIComponent(
       `🚩 *इंडियन नेशनल लोकदल (INLD)* 🚩\n` +
-      `*आधिकारिक सदस्यता पहचान पत्र*\n\n` +
+      `*आधिकारिक सदस्यता पहचान पत्र (सम्पूर्ण - Front & Back)*\n\n` +
       `👤 *नाम:* ${data.name}\n` +
       `👨‍👦 *पिताजी का नाम:* ${data.father}\n` +
       `📱 *मोबाइल:* ${data.mobile}\n` +
@@ -696,9 +736,14 @@ function setupEventListeners() {
     window.open(`https://wa.me/${fullWaNumber}?text=${msg}`, '_blank');
   });
 
-  // Fullscreen Zoom
-  elements.btnFullscreenView.addEventListener('click', () => {
-    elements.modalImg.src = elements.canvas.toDataURL('image/png');
+  // Side Zooms
+  elements.btnZoomFront.addEventListener('click', () => {
+    elements.modalImg.src = elements.canvasFront.toDataURL('image/png');
+    elements.zoomModal.classList.add('active');
+  });
+
+  elements.btnZoomBack.addEventListener('click', () => {
+    elements.modalImg.src = elements.canvasBack.toDataURL('image/png');
     elements.zoomModal.classList.add('active');
   });
 

@@ -198,10 +198,13 @@
         
         <div class="preview-header-bar">
           <div class="preview-badge">
-            <span class="dot-live"></span> आपका पहचान पत्र तैयार है! (ID Card Generated)
+            <span class="dot-live"></span> आपका सम्पूर्ण पहचान पत्र तैयार है! (Full ID Card Generated)
           </div>
           <div class="tab-pill-group">
-            <button type="button" class="tab-btn active" id="tabFront">
+            <button type="button" class="tab-btn active" id="tabBoth">
+              दोनों साइड (Both Sides)
+            </button>
+            <button type="button" class="tab-btn" id="tabFront">
               सामने (Front)
             </button>
             <button type="button" class="tab-btn" id="tabBack">
@@ -210,32 +213,66 @@
           </div>
         </div>
 
-        <!-- The ID Card Canvas Container -->
-        <div class="canvas-viewport" id="cardStage">
-          <canvas id="idCardCanvas"></canvas>
+        <!-- Dual Card Stages Container (Front & Back) -->
+        <div class="dual-cards-container" id="dualCardsContainer">
+          
+          <!-- Front Card Block -->
+          <div class="card-side-block" id="blockFront">
+            <div class="card-side-tag">
+              <span class="tag-badge">सामने का भाग (Front Side)</span>
+              <span class="side-dim">1280 × 853 px • HD 300 DPI</span>
+            </div>
+            <div class="canvas-viewport" id="cardStageFront">
+              <canvas id="idCardCanvasFront"></canvas>
+            </div>
+            <div class="side-quick-actions">
+              <button type="button" class="btn-side-download" id="btnDownloadFrontQuick">
+                📥 सामने का भाग डाउनलोड करें (Front PNG)
+              </button>
+              <button type="button" class="btn-side-zoom" id="btnZoomFront">
+                🔍 बड़ा देखें
+              </button>
+            </div>
+          </div>
+
+          <!-- Back Card Block -->
+          <div class="card-side-block" id="blockBack">
+            <div class="card-side-tag">
+              <span class="tag-badge tag-back">पीछे का भाग (Back Side)</span>
+              <span class="side-dim">1280 × 853 px • HD 300 DPI</span>
+            </div>
+            <div class="canvas-viewport" id="cardStageBack">
+              <canvas id="idCardCanvasBack"></canvas>
+            </div>
+            <div class="side-quick-actions">
+              <button type="button" class="btn-side-download" id="btnDownloadBackQuick">
+                📥 पीछे का भाग डाउनलोड करें (Back PNG)
+              </button>
+              <button type="button" class="btn-side-zoom" id="btnZoomBack">
+                🔍 बड़ा देखें
+              </button>
+            </div>
+          </div>
+
         </div>
 
-        <div class="card-dimensions-info">
-          <span>📐 1280 × 853 px • Ultra HD 300 DPI Ready</span>
-          <button type="button" id="btnFullscreenView" class="btn-small-link">
-            🔍 बड़ा देखें (Zoom)
+        <!-- Master Actions Section -->
+        <div class="actions-grid-full">
+          <button type="button" id="btnDownloadBoth" class="btn-dl btn-both-dl">
+            ✨ दोनों साइड डाउनलोड करें (Download Both Sides - HD PNG)
           </button>
-        </div>
-
-        <!-- Action / Download Buttons Grid -->
-        <div class="actions-grid">
-          <button type="button" id="btnDownloadPng" class="btn-dl btn-png">
-            📥 HD PNG डाउनलोड करें
-          </button>
-          <button type="button" id="btnDownloadPdf" class="btn-dl btn-pdf">
-            📄 PDF डाउनलोड करें
-          </button>
-          <button type="button" id="btnPrintCard" class="btn-dl btn-print">
-            🖨️ प्रिंट करें (Print)
-          </button>
-          <button type="button" id="btnCopyImage" class="btn-dl btn-copy">
-            📋 कार्ड कॉपी करें
-          </button>
+          
+          <div class="actions-sub-row">
+            <button type="button" id="btnDownloadPdf" class="btn-dl btn-pdf">
+              📄 2-पेज सम्पूर्ण PDF (Front + Back)
+            </button>
+            <button type="button" id="btnPrintCard" class="btn-dl btn-print">
+              🖨️ सम्पूर्ण कार्ड प्रिंट करें (Print Full Card)
+            </button>
+            <button type="button" id="btnCopyImage" class="btn-dl btn-copy">
+              📋 कार्ड कॉपी करें (Copy)
+            </button>
+          </div>
         </div>
 
         <!-- WhatsApp Direct Send Card -->
