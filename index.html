@@ -183,6 +183,12 @@
           <div class="field-error" id="error-whatsappNumber"></div>
         </div>
 
+        <!-- 7-Day Free Trial / Subscription Status Indicator -->
+        <div class="trial-status-badge" id="trialStatusBadge" style="display: none;">
+          <span class="badge-pulse"></span>
+          <span id="trialStatusText">⏳ 7-दिन निःशुल्क ट्रायल सक्रिय</span>
+        </div>
+
         <!-- Submit Button -->
         <button type="submit" class="btn-card-create" id="btnSubmitCard">
           कार्ड बनाएं
@@ -315,6 +321,75 @@
     </div>
   </div>
 
+  <!-- 7-Day Trial Expired / Subscription Plans Modal -->
+  <div class="modal-overlay" id="subscriptionModal">
+    <div class="modal-content sub-modal-card">
+      <div class="sub-modal-header">
+        <div class="sub-icon-crown">👑</div>
+        <h3>7-दिन का फ्री ट्रायल समाप्त हो गया है</h3>
+        <p>पहचान पत्र निर्माण जारी रखने के लिए कृपया अपनी सदस्यता चुनें</p>
+        <button type="button" class="modal-close-btn" id="subModalClose">&times;</button>
+      </div>
+      <div class="sub-modal-body">
+        
+        <div class="plans-grid">
+          <!-- Plan 1: Monthly -->
+          <div class="plan-card" data-plan="monthly">
+            <span class="plan-tag">मासिक</span>
+            <h4>₹99</h4>
+            <span class="plan-period">प्रति महीना (1 Month)</span>
+            <ul class="plan-features">
+              <li>✓ असीमित HD कार्ड जनरेशन</li>
+              <li>✓ Front & Back दोनों साइड्स</li>
+              <li>✓ 300 DPI प्रिंट-रेडी PDF</li>
+            </ul>
+            <button type="button" class="btn-choose-plan" data-plan="monthly">
+              प्लान चुनें
+            </button>
+          </div>
+
+          <!-- Plan 2: Yearly (Popular) -->
+          <div class="plan-card popular-plan" data-plan="yearly">
+            <span class="plan-popular-badge">सर्वाधिक लोकप्रिय (Best Value)</span>
+            <span class="plan-tag tag-gold">वार्षिक</span>
+            <h4>₹499</h4>
+            <span class="plan-period">पूरे 1 वर्ष हेतु (1 Year)</span>
+            <ul class="plan-features">
+              <li>✓ असीमित HD कार्ड निर्माण</li>
+              <li>✓ फ्रंट व बैक दोनों साइड्स</li>
+              <li>✓ 2-पेज सम्पूर्ण PDF एक्सपोर्ट</li>
+              <li>✓ WhatsApp डायरेक्ट सेंड</li>
+              <li>✓ 60% की भारी बचत</li>
+            </ul>
+            <button type="button" class="btn-choose-plan btn-plan-popular" data-plan="yearly">
+              वार्षिक प्लान लें (₹499)
+            </button>
+          </div>
+
+          <!-- Plan 3: Lifetime -->
+          <div class="plan-card" data-plan="lifetime">
+            <span class="plan-tag">लाइफटाइम</span>
+            <h4>₹999</h4>
+            <span class="plan-period">एक बार भुगतान (Lifetime)</span>
+            <ul class="plan-features">
+              <li>✓ हमेशा के लिए असीमित कार्ड्स</li>
+              <li>✓ वीआईपी प्राथमिकता सपोर्ट</li>
+              <li>✓ भविष्य के सभी अपडेट्स</li>
+            </ul>
+            <button type="button" class="btn-choose-plan" data-plan="lifetime">
+              लाइफटाइम लें
+            </button>
+          </div>
+        </div>
+
+        <div class="sub-guarantee-note">
+          🔒 सुरक्षित एवं तुरंत सक्रियण • सहायता हेतु INLD मुख्यालय से संपर्क करें।
+        </div>
+
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification -->
   <div class="toast-notice" id="toastNotice">
     <span id="toastMsg">पहचान पत्र सफलतापूर्वक तैयार हो गया!</span>
@@ -328,6 +403,11 @@
       </div>
       <div class="footer-copy">
         © 2026 इंडियन नेशनल लोकदल (Indian National Lokdal). सर्वाधिकार सुरक्षित।
+      </div>
+      <div class="footer-admin-link">
+        <a href="/admin.html" class="link-admin-portal">
+          🔐 प्रशासक पोर्टल (Admin Login)
+        </a>
       </div>
     </div>
   </footer>

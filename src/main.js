@@ -86,7 +86,9 @@ const state = {
   userPhoto: null,
   isRendering: false,
   sampleAssets: null,
-  cardGenerated: false
+  cardGenerated: false,
+  fieldConfigs: [],
+  subscription: null
 };
 
 // DOM Elements
@@ -102,6 +104,13 @@ const elements = {
   tabBoth: document.getElementById('tabBoth'),
   tabFront: document.getElementById('tabFront'),
   tabBack: document.getElementById('tabBack'),
+
+  // Trial & Subscription
+  trialStatusBadge: document.getElementById('trialStatusBadge'),
+  trialStatusText: document.getElementById('trialStatusText'),
+  subscriptionModal: document.getElementById('subscriptionModal'),
+  subModalClose: document.getElementById('subModalClose'),
+  choosePlanBtns: document.querySelectorAll('.btn-choose-plan'),
 
   // Inputs
   photoInput: document.getElementById('photoInput'),
@@ -206,6 +215,8 @@ function getFormData() {
     constituency: elements.inputConstituency.value.trim(),
     conscode: elements.inputConscode.value.trim(),
     booth: elements.inputBooth.value.trim(),
+    whatsappNumber: elements.whatsappNumber.value.trim(),
+    whatsappCountryCode: elements.selectWaCountry.value,
     membershipNo: membershipNo,
     signatoryName: 'RamPal Majra',
     signatoryTitle: 'Pradeshadhyaksh, INLD',
@@ -259,7 +270,110 @@ function clearFieldError(fieldId) {
   setFieldError(fieldId, '');
 }
 
-// Comprehensive Form Validation
+// Field Mapping to DOM group IDs
+const FIELD_GROUP_MAP = {
+  photoInput: 'group-photo',
+  inputName: 'group-name',
+  inputFather: 'group-father',
+  inputMobile: 'group-mobile',
+  selectState: 'group-state',
+  selectDistrict: 'group-district',
+  inputConstituency: 'group-constituency',
+  inputConscode: 'group-conscode',
+  inputDesignation: 'group-designation',
+  inputDob: 'group-dob',
+  inputCaste: 'group-caste',
+  inputBooth: 'group-booth',
+  whatsappNumber: 'group-whatsapp'
+};
+
+function isFieldEnabled(key) {
+  const f = state.fieldConfigs.find(c => c.field_key === key);
+  return f ? Boolean(f.is_enabled) : true;
+}
+
+function isFieldRequired(key) {
+  const f = state.fieldConfigs.find(c => c.field_key === key);
+  return f ? Boolean(f.is_required) : true;
+}
+
+// Fetch and Apply Dynamic Field Configurations from Admin
+async function loadAndApplyFieldConfigs() {
+  try {
+    const res = await fetch('/api/config/fields');
+    const data = await res.json();
+    if (data.success && Array.isArray(data.fields)) {
+      state.fieldConfigs = data.fields;
+      data.fields.forEach((f) => {
+        const groupId = FIELD_GROUP_MAP[f.field_key];
+        const groupEl = document.getElementById(groupId);
+        if (groupEl) {
+          groupEl.style.display = f.is_enabled ? '' : 'none';
+          const labelEl = groupEl.querySelector('.field-label');
+          if (labelEl && f.label_hi) {
+            const reqStar = f.is_required ? ' <span class="req-star">*</span>' : '';
+            labelEl.innerHTML = `${f.label_hi}${reqStar}`;
+          }
+        }
+      });
+    }
+  } catch (err) {
+    console.warn('Field config fetch skipped (offline/standalone):', err);
+  }
+}
+
+// Check 7-Day Free Trial / Subscription Status
+async function checkSubscriptionStatus(phone) {
+  if (!phone || phone.length < 5) {
+    if (elements.trialStatusBadge) elements.trialStatusBadge.style.display = 'none';
+    return null;
+  }
+
+  try {
+    const res = await fetch(`/api/subscriptions/check?phone=${encodeURIComponent(phone)}`);
+    const data = await res.json();
+    if (data.success && data.subscription) {
+      state.subscription = data.subscription;
+      renderTrialBadge(data.subscription);
+      return data.subscription;
+    }
+  } catch (err) {
+    console.warn('Subscription check error:', err);
+  }
+  return null;
+}
+
+// Render Trial Badge
+function renderTrialBadge(sub) {
+  if (!elements.trialStatusBadge) return;
+
+  elements.trialStatusBadge.style.display = 'flex';
+  elements.trialStatusBadge.className = 'trial-status-badge';
+
+  if (sub.isSubscribed) {
+    elements.trialStatusBadge.classList.add('active-premium');
+    elements.trialStatusText.textContent = '👑 प्रीमियम सक्रिय • असीमित कार्ड्स';
+  } else if (sub.isTrialActive) {
+    elements.trialStatusText.textContent = `⏳ 7-दिन निःशुल्क ट्रायल सक्रिय (${sub.daysRemaining} दिन शेष)`;
+  } else {
+    elements.trialStatusBadge.classList.add('trial-expired');
+    elements.trialStatusText.textContent = '⚠️ 7-दिन का ट्रायल समाप्त • कार्ड बनाने हेतु सब्सक्राइब करें';
+  }
+}
+
+function openSubscriptionModal() {
+  if (elements.subscriptionModal) {
+    elements.subscriptionModal.classList.add('active');
+  }
+}
+
+function closeSubscriptionModal() {
+  if (elements.subscriptionModal) {
+    elements.subscriptionModal.classList.remove('active');
+  }
+}
+
+// Comprehensive Dynamic Form Validation
 function validateForm() {
   let isValid = true;
   let firstInvalidEl = null;
@@ -273,124 +387,150 @@ function validateForm() {
   }
 
   // 1. Photo validation
-  if (!state.userPhoto) {
-    isValid = false;
-    setFieldError('photoInput', 'कृपया अपनी फ़ोटो अपलोड करें');
-    if (!firstInvalidEl) firstInvalidEl = elements.photoInput;
-  } else {
-    clearFieldError('photoInput');
+  if (isFieldEnabled('photoInput')) {
+    if (isFieldRequired('photoInput') && !state.userPhoto) {
+      isValid = false;
+      setFieldError('photoInput', 'कृपया अपनी फ़ोटो अपलोड करें');
+      if (!firstInvalidEl) firstInvalidEl = elements.photoInput;
+    } else {
+      clearFieldError('photoInput');
+    }
   }
 
   // 2. Name validation
   const nameVal = elements.inputName.value.trim();
-  if (!nameVal) {
-    markError('inputName', 'नाम दर्ज करना अनिवार्य है');
-  } else if (nameVal.length < 2) {
-    markError('inputName', 'नाम कम से कम 2 अक्षरों का होना चाहिए');
-  } else {
-    clearFieldError('inputName');
+  if (isFieldEnabled('inputName')) {
+    if (isFieldRequired('inputName') && !nameVal) {
+      markError('inputName', 'नाम दर्ज करना अनिवार्य है');
+    } else if (nameVal && nameVal.length < 2) {
+      markError('inputName', 'नाम कम से कम 2 अक्षरों का होना चाहिए');
+    } else {
+      clearFieldError('inputName');
+    }
   }
 
   // 3. Father's Name validation
   const fatherVal = elements.inputFather.value.trim();
-  if (!fatherVal) {
-    markError('inputFather', 'पिताजी का नाम दर्ज करना अनिवार्य है');
-  } else if (fatherVal.length < 2) {
-    markError('inputFather', 'पिताजी का नाम कम से कम 2 अक्षरों का होना चाहिए');
-  } else {
-    clearFieldError('inputFather');
+  if (isFieldEnabled('inputFather')) {
+    if (isFieldRequired('inputFather') && !fatherVal) {
+      markError('inputFather', 'पिताजी का नाम दर्ज करना अनिवार्य है');
+    } else if (fatherVal && fatherVal.length < 2) {
+      markError('inputFather', 'पिताजी का नाम कम से कम 2 अक्षरों का होना चाहिए');
+    } else {
+      clearFieldError('inputFather');
+    }
   }
 
   // 4. Mobile Number validation
   const mobileVal = elements.inputMobile.value.trim();
   const mobileCountry = elements.selectMobileCountry.value;
-  if (!mobileVal) {
-    markError('inputMobile', 'मोबाइल नंबर दर्ज करना अनिवार्य है');
-  } else if (mobileCountry === '+91' && !/^[5-9]\d{9}$/.test(mobileVal)) {
-    markError('inputMobile', 'कृपया 10 अंकों का मान्य भारतीय मोबाइल नंबर दर्ज करें');
-  } else if (!/^\d{6,14}$/.test(mobileVal)) {
-    markError('inputMobile', 'कृपया मान्य मोबाइल नंबर दर्ज करें (6-14 अंक)');
-  } else {
-    clearFieldError('inputMobile');
+  if (isFieldEnabled('inputMobile')) {
+    if (isFieldRequired('inputMobile') && !mobileVal) {
+      markError('inputMobile', 'मोबाइल नंबर दर्ज करना अनिवार्य है');
+    } else if (mobileVal && mobileCountry === '+91' && !/^[5-9]\d{9}$/.test(mobileVal)) {
+      markError('inputMobile', 'कृपया 10 अंकों का मान्य भारतीय मोबाइल नंबर दर्ज करें');
+    } else if (mobileVal && !/^\d{6,14}$/.test(mobileVal)) {
+      markError('inputMobile', 'कृपया मान्य मोबाइल नंबर दर्ज करें (6-14 अंक)');
+    } else {
+      clearFieldError('inputMobile');
+    }
   }
 
   // 5. State validation
-  if (!elements.selectState.value.trim()) {
-    markError('selectState', 'कृपया राज्य चुनें');
-  } else {
-    clearFieldError('selectState');
+  if (isFieldEnabled('selectState')) {
+    if (isFieldRequired('selectState') && !elements.selectState.value.trim()) {
+      markError('selectState', 'कृपया राज्य चुनें');
+    } else {
+      clearFieldError('selectState');
+    }
   }
 
   // 6. District validation
-  if (!elements.selectDistrict.value.trim()) {
-    markError('selectDistrict', 'कृपया ज़िला चुनें');
-  } else {
-    clearFieldError('selectDistrict');
+  if (isFieldEnabled('selectDistrict')) {
+    if (isFieldRequired('selectDistrict') && !elements.selectDistrict.value.trim()) {
+      markError('selectDistrict', 'कृपया ज़िला चुनें');
+    } else {
+      clearFieldError('selectDistrict');
+    }
   }
 
   // 7. Constituency validation
   const constVal = elements.inputConstituency.value.trim();
-  if (!constVal) {
-    markError('inputConstituency', 'विधानसभा क्षेत्र दर्ज करना अनिवार्य है');
-  } else if (constVal.length < 2) {
-    markError('inputConstituency', 'विधानसभा क्षेत्र कम से कम 2 अक्षरों का होना चाहिए');
-  } else {
-    clearFieldError('inputConstituency');
+  if (isFieldEnabled('inputConstituency')) {
+    if (isFieldRequired('inputConstituency') && !constVal) {
+      markError('inputConstituency', 'विधानसभा क्षेत्र दर्ज करना अनिवार्य है');
+    } else if (constVal && constVal.length < 2) {
+      markError('inputConstituency', 'विधानसभा क्षेत्र कम से कम 2 अक्षरों का होना चाहिए');
+    } else {
+      clearFieldError('inputConstituency');
+    }
   }
 
   // 8. Constituency Code validation
   const consCodeVal = elements.inputConscode.value.trim();
-  if (!consCodeVal) {
-    markError('inputConscode', 'विधानसभा कोड दर्ज करना अनिवार्य है (उदा. 45 या SRS)');
-  } else {
-    clearFieldError('inputConscode');
+  if (isFieldEnabled('inputConscode')) {
+    if (isFieldRequired('inputConscode') && !consCodeVal) {
+      markError('inputConscode', 'विधानसभा कोड दर्ज करना अनिवार्य है (उदा. 45 या SRS)');
+    } else {
+      clearFieldError('inputConscode');
+    }
   }
 
   // 9. Designation validation
   const desigVal = elements.inputDesignation.value.trim();
-  if (!desigVal) {
-    markError('inputDesignation', 'पद/नाम दर्ज करना अनिवार्य है');
-  } else {
-    clearFieldError('inputDesignation');
+  if (isFieldEnabled('inputDesignation')) {
+    if (isFieldRequired('inputDesignation') && !desigVal) {
+      markError('inputDesignation', 'पद/नाम दर्ज करना अनिवार्य है');
+    } else {
+      clearFieldError('inputDesignation');
+    }
   }
 
   // 10. DOB validation
   const dobVal = elements.inputDob.value.trim();
-  if (!dobVal) {
-    markError('inputDob', 'जन्म तिथि दर्ज करना अनिवार्य है (DD/MM/YYYY)');
-  } else if (!isValidDob(dobVal)) {
-    markError('inputDob', 'मान्य जन्म तिथि दर्ज करें प्रारूप: DD/MM/YYYY (उदा. 20/05/1973)');
-  } else {
-    clearFieldError('inputDob');
+  if (isFieldEnabled('inputDob')) {
+    if (isFieldRequired('inputDob') && !dobVal) {
+      markError('inputDob', 'जन्म तिथि दर्ज करना अनिवार्य है (DD/MM/YYYY)');
+    } else if (dobVal && !isValidDob(dobVal)) {
+      markError('inputDob', 'मान्य जन्म तिथि दर्ज करें प्रारूप: DD/MM/YYYY (उदा. 20/05/1973)');
+    } else {
+      clearFieldError('inputDob');
+    }
   }
 
   // 11. Caste validation
   const casteVal = elements.inputCaste.value.trim();
-  if (!casteVal) {
-    markError('inputCaste', 'जाति / वर्ग (Caste) दर्ज करना अनिवार्य है');
-  } else {
-    clearFieldError('inputCaste');
+  if (isFieldEnabled('inputCaste')) {
+    if (isFieldRequired('inputCaste') && !casteVal) {
+      markError('inputCaste', 'जाति / वर्ग (Caste) दर्ज करना अनिवार्य है');
+    } else {
+      clearFieldError('inputCaste');
+    }
   }
 
   // 12. Booth No validation
   const boothVal = elements.inputBooth.value.trim();
-  if (!boothVal) {
-    markError('inputBooth', 'बूथ नंबर दर्ज करना अनिवार्य है');
-  } else {
-    clearFieldError('inputBooth');
+  if (isFieldEnabled('inputBooth')) {
+    if (isFieldRequired('inputBooth') && !boothVal) {
+      markError('inputBooth', 'बूथ नंबर दर्ज करना अनिवार्य है');
+    } else {
+      clearFieldError('inputBooth');
+    }
   }
 
   // 13. WhatsApp Number validation
   const waVal = elements.whatsappNumber.value.trim();
   const waCountry = elements.selectWaCountry.value;
-  if (!waVal) {
-    markError('whatsappNumber', 'WhatsApp नंबर दर्ज करना अनिवार्य है');
-  } else if (waCountry === '+91' && !/^[5-9]\d{9}$/.test(waVal)) {
-    markError('whatsappNumber', 'कृपया 10 अंकों का मान्य WhatsApp नंबर दर्ज करें');
-  } else if (!/^\d{6,14}$/.test(waVal)) {
-    markError('whatsappNumber', 'कृपया मान्य WhatsApp नंबर दर्ज करें (6-14 अंक)');
-  } else {
-    clearFieldError('whatsappNumber');
+  if (isFieldEnabled('whatsappNumber')) {
+    if (isFieldRequired('whatsappNumber') && !waVal) {
+      markError('whatsappNumber', 'WhatsApp नंबर दर्ज करना अनिवार्य है');
+    } else if (waVal && waCountry === '+91' && !/^[5-9]\d{9}$/.test(waVal)) {
+      markError('whatsappNumber', 'कृपया 10 अंकों का मान्य WhatsApp नंबर दर्ज करें');
+    } else if (waVal && !/^\d{6,14}$/.test(waVal)) {
+      markError('whatsappNumber', 'कृपया मान्य WhatsApp नंबर दर्ज करें (6-14 अंक)');
+    } else {
+      clearFieldError('whatsappNumber');
+    }
   }
 
   return { isValid, firstInvalidEl };
@@ -458,6 +598,9 @@ async function init() {
   } catch (err) {
     console.error('Assets loading error:', err);
   }
+
+  // Load dynamic fields config from admin
+  await loadAndApplyFieldConfigs();
 
   setupEventListeners();
 }
@@ -558,6 +701,61 @@ function setupEventListeners() {
   // Sample data button
   elements.btnFillSampleQuick.addEventListener('click', loadSampleData);
 
+  // Auto-check trial on mobile or whatsapp blur
+  elements.inputMobile.addEventListener('blur', () => {
+    checkSubscriptionStatus(elements.inputMobile.value.trim());
+  });
+  elements.whatsappNumber.addEventListener('blur', () => {
+    checkSubscriptionStatus(elements.whatsappNumber.value.trim());
+  });
+
+  // Subscription Modal Controls
+  elements.subModalClose?.addEventListener('click', closeSubscriptionModal);
+  elements.subscriptionModal?.addEventListener('click', (e) => {
+    if (e.target === elements.subscriptionModal) closeSubscriptionModal();
+  });
+
+  // Choose Plan buttons
+  elements.choosePlanBtns.forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const planName = btn.dataset.plan || 'yearly';
+      const phone = elements.inputMobile.value.trim() || elements.whatsappNumber.value.trim();
+      if (!phone) {
+        showToast('कृपया पहले मोबाइल नंबर दर्ज करें', false);
+        closeSubscriptionModal();
+        return;
+      }
+
+      btn.disabled = true;
+      const originalText = btn.textContent;
+      btn.textContent = 'सक्रिय किया जा रहा है...';
+
+      try {
+        const res = await fetch('/api/subscriptions/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, planName })
+        });
+        const data = await res.json();
+        if (data.success && data.subscription) {
+          state.subscription = data.subscription;
+          renderTrialBadge(data.subscription);
+          closeSubscriptionModal();
+          showToast('👑 बधाई! आपका प्रीमियम प्लान सक्रिय हो गया है!');
+          // Automatically trigger card generation
+          elements.form.requestSubmit();
+        } else {
+          showToast(data.error || 'सब्सक्राइब करने में त्रुटि', false);
+        }
+      } catch (err) {
+        showToast('त्रुटि हुई', false);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+    });
+  });
+
   // Form Submit: "कार्ड बनाएं"
   elements.form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -574,9 +772,32 @@ function setupEventListeners() {
       return;
     }
 
+    // Check 7-Day Free Trial / Subscription Status
+    const phone = elements.inputMobile.value.trim() || elements.whatsappNumber.value.trim();
+    if (phone) {
+      const sub = await checkSubscriptionStatus(phone);
+      if (sub && !sub.canGenerateCard) {
+        openSubscriptionModal();
+        return;
+      }
+    }
+
     // Generate Card
     await updateCard();
     state.cardGenerated = true;
+
+    // Send Card Creation Log to Backend
+    try {
+      const cardData = {
+        ...getFormData(),
+        photoThumb: state.userPhoto ? elements.photoThumb.src : ''
+      };
+      fetch('/api/cards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cardData)
+      }).catch(err => console.warn('Card log failed:', err));
+    } catch (e) {}
 
     // Reveal preview section
     elements.previewResultSection.style.display = 'block';

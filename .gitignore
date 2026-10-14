@@ -5,3 +5,5 @@ dist-ssr
 .DS_Store
 source_files/
 extract_logos.py
+data/*.sqlite
+.env

@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>इनेलो एडमिन पोर्टल | INLD ID Card Admin Dashboard</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="/src/admin.css">
+</head>
+<body>
+
+  <!-- 1. LOGIN SCREEN OVERLAY -->
+  <div class="admin-login-screen" id="adminLoginScreen">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="login-emblem">
+          <img src="/assets/logo_green_img.png" alt="INLD Logo" class="login-logo">
+        </div>
+        <h2>इनेलो प्रशासक पोर्टल</h2>
+        <p>INLD Card System Admin Portal</p>
+      </div>
+
+      <form id="adminLoginForm" class="login-form">
+        <div class="login-field">
+          <label for="adminUsername">यूजरनेम (Username)</label>
+          <input type="text" id="adminUsername" placeholder="यूजरनेम दर्ज करें" required autofocus>
+        </div>
+
+        <div class="login-field">
+          <label for="adminPassword">पासवर्ड (Password)</label>
+          <input type="password" id="adminPassword" placeholder="पासवर्ड दर्ज करें" required>
+        </div>
+
+        <div class="login-error" id="loginError" style="display: none;"></div>
+
+        <button type="submit" class="btn-login-submit" id="btnLoginSubmit">
+          सुरक्षित लॉगिन करें (Sign In)
+        </button>
+
+        <div class="login-demo-hint">
+          <span>डिफ़ॉल्ट लॉगिन: <strong>admin</strong> / <strong>admin123</strong></span>
+        </div>
+      </form>
+
+      <div class="login-footer-link">
+        <a href="/">← मुख्य कार्ड जनरेटर पर वापस जाएं</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. MAIN ADMIN DASHBOARD (Hidden until logged in) -->
+  <div class="admin-dashboard-app" id="adminDashboardApp" style="display: none;">
+    
+    <!-- Top Navbar -->
+    <header class="admin-topbar">
+      <div class="admin-brand">
+        <img src="/assets/logo_green_img.png" alt="INLD Logo" class="topbar-logo">
+        <div class="brand-text">
+          <h1>इनेलो एडमिन पोर्टल</h1>
+          <span>Official Membership System Management</span>
+        </div>
+      </div>
+
+      <div class="admin-top-actions">
+        <a href="/" target="_blank" class="btn-top-link">
+          🌐 जनरेटर खोलें
+        </a>
+        <div class="admin-user-pill">
+          <span class="avatar-circle" id="adminAvatar">A</span>
+          <div class="user-info">
+            <span class="user-name" id="adminNameDisplay">INLD Admin</span>
+            <span class="user-role" id="adminRoleDisplay">Super Admin</span>
+          </div>
+        </div>
+        <button type="button" class="btn-logout" id="btnLogout" title="लॉगआउट करें">
+          लॉगआउट ⏻
+        </button>
+      </div>
+    </header>
+
+    <!-- Sub-Navbar / Tabs -->
+    <nav class="admin-nav-tabs">
+      <div class="nav-tabs-wrapper">
+        <button type="button" class="tab-link active" data-tab="tabOverview">
+          📊 मुख्य डैशबोर्ड (Overview)
+        </button>
+        <button type="button" class="tab-link" data-tab="tabCardLogs">
+          📋 कार्ड निर्माण लॉग्स (Card Logs)
+        </button>
+        <button type="button" class="tab-link" data-tab="tabFieldConfig">
+          ⚙️ फ़ील्ड कॉन्फ़िगरेशन (Fields Manager)
+        </button>
+        <button type="button" class="tab-link" data-tab="tabSubscriptions">
+          💳 ट्रायल एवं सब्सक्रिप्शन (Subscriptions)
+        </button>
+        <button type="button" class="tab-link" data-tab="tabSecurity">
+          🔐 सुरक्षा एवं पासवर्ड (Security)
+        </button>
+      </div>
+    </nav>
+
+    <!-- Main Content Container -->
+    <main class="admin-main-container">
+
+      <!-- TAB 1: OVERVIEW & ANALYTICS -->
+      <section class="tab-content-panel active" id="tabOverview">
+        <div class="section-title-bar">
+          <div>
+            <h2>सिस्टम ओवरव्यू एवं आंकड़े</h2>
+            <p>कार्ड जनरेशन, सक्रिय उपयोगकर्ता और 7-दिन फ्री ट्रायल स्थिति</p>
+          </div>
+          <button type="button" class="btn-refresh" id="btnRefreshStats">
+            🔄 आंकड़े रीफ़्रेश करें
+          </button>
+        </div>
+
+        <!-- Metric Cards Grid -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon icon-green">🪪</div>
+            <div class="stat-content">
+              <span class="stat-label">कुल बनाए गए पहचान पत्र</span>
+              <h3 class="stat-value" id="statTotalCards">0</h3>
+              <span class="stat-sub">Lifetime Generated</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon icon-amber">📅</div>
+            <div class="stat-content">
+              <span class="stat-label">आज बने पहचान पत्र</span>
+              <h3 class="stat-value" id="statTodayCards">0</h3>
+              <span class="stat-sub">Cards Generated Today</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon icon-blue">👥</div>
+            <div class="stat-content">
+              <span class="stat-label">कुल पंजीकृत मोबाइल नंबर</span>
+              <h3 class="stat-value" id="statTotalUsers">0</h3>
+              <span class="stat-sub">Unique Phone Registrations</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon icon-purple">⏳</div>
+            <div class="stat-content">
+              <span class="stat-label">सक्रिय 7-दिन फ्री ट्रायल</span>
+              <h3 class="stat-value" id="statActiveTrials">0</h3>
+              <span class="stat-sub">In 7-Day Free Trial Window</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon icon-gold">👑</div>
+            <div class="stat-content">
+              <span class="stat-label">प्रीमियम सब्सक्राइबर्स</span>
+              <h3 class="stat-value" id="statSubscribers">0</h3>
+              <span class="stat-sub">Active Paid Subscriptions</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Access Banners -->
+        <div class="quick-banners-row">
+          <div class="banner-box banner-fields">
+            <h3>⚙️ फ़ॉर्म फ़ील्ड्स नियंत्रण</h3>
+            <p>किसी भी फ़ील्ड को सक्षम/अक्षम (Show/Hide) करें या अनिवार्य/वैकल्पिक बनाएं।</p>
+            <button type="button" class="btn-banner-action" id="btnJumpFields">
+              फ़ील्ड सेटिंग्स बदलें →
+            </button>
+          </div>
+          <div class="banner-box banner-subs">
+            <h3>💳 7-दिन ट्रायल एवं सब्सक्रिप्शन</h3>
+            <p>यूजर के ट्रायल को 7 दिन और बढ़ाएं या सीधे प्रीमियम एक्सेस सक्रिय करें।</p>
+            <button type="button" class="btn-banner-action" id="btnJumpSubs">
+              सब्सक्रिप्शन प्रबंधित करें →
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: CARD GENERATION LOGS -->
+      <section class="tab-content-panel" id="tabCardLogs">
+        <div class="section-title-bar">
+          <div>
+            <h2>पहचान पत्र निर्माण लॉग्स (Card Creation Logs)</h2>
+            <p>किस कार्यकर्ता ने कब, किस मोबाइल नंबर और विधानसभा क्षेत्र के लिए कार्ड बनाया</p>
+          </div>
+          <div class="logs-action-buttons">
+            <button type="button" class="btn-export-csv" id="btnExportCsv">
+              📥 Excel/CSV में डाउनलोड करें
+            </button>
+            <button type="button" class="btn-refresh" id="btnRefreshLogs">
+              🔄 रीफ़्रेश
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter & Search Toolbar -->
+        <div class="toolbar-box">
+          <div class="search-input-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="logSearchInput" placeholder="नाम, मोबाइल, पिता का नाम, विधानसभा, जाति द्वारा खोजें...">
+          </div>
+          <div class="filters-row">
+            <select id="logFilterState" class="filter-select">
+              <option value="all">सभी राज्य (All States)</option>
+            </select>
+            <select id="logFilterDistrict" class="filter-select">
+              <option value="all">सभी ज़िले (All Districts)</option>
+            </select>
+            <button type="button" class="btn-filter-clear" id="btnClearLogFilters">
+              फ़िल्टर हटाएं
+            </button>
+          </div>
+        </div>
+
+        <!-- Logs Table Container -->
+        <div class="table-responsive-container">
+          <table class="data-table" id="cardLogsTable">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>सदस्य विवरण (Member)</th>
+                <th>पिता का नाम</th>
+                <th>मोबाइल / WhatsApp</th>
+                <th>राज्य एवं ज़िला</th>
+                <th>विधानसभा क्षेत्र</th>
+                <th>जाति</th>
+                <th>बूथ</th>
+                <th>तैयार होने का समय</th>
+                <th>कार्यवाही</th>
+              </tr>
+            </thead>
+            <tbody id="cardLogsTableBody">
+              <tr>
+                <td colspan="10" class="text-center py-6">लॉग्स लोड हो रहे हैं...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination Bar -->
+        <div class="pagination-bar" id="logsPaginationBar">
+          <span class="pagination-info" id="logsCountInfo">0 कार्ड प्रदर्शित</span>
+        </div>
+      </section>
+
+      <!-- TAB 3: FIELD CONFIGURATION -->
+      <section class="tab-content-panel" id="tabFieldConfig">
+        <div class="section-title-bar">
+          <div>
+            <h2>फ़ॉर्म फ़ील्ड्स कॉन्फ़िगरेशन (Dynamic Fields Manager)</h2>
+            <p>यहाँ से आप किसी भी फ़ील्ड को हटा/जोड़ (Enable/Disable) सकते हैं और अनिवार्य या वैकल्पिक तय कर सकते हैं</p>
+          </div>
+          <div class="fields-header-actions">
+            <button type="button" class="btn-reset-danger" id="btnResetDefaultFields">
+              ↺ डिफ़ॉल्ट सेटिंग्स रीसेट करें
+            </button>
+            <button type="button" class="btn-save-primary" id="btnSaveFieldConfigs">
+              💾 सेटिंग्स सहेजें (Save Changes)
+            </button>
+          </div>
+        </div>
+
+        <div class="config-instructions-alert">
+          💡 <strong>ध्यान दें:</strong> जिस फ़ील्ड का "सक्षम (Enabled)" टॉगल आप बंद करेंगे, वह मुख्य कार्ड जनरेटर फ़ॉर्म से तुरंत गायब हो जाएगी।
+        </div>
+
+        <!-- Fields List Container -->
+        <div class="fields-list-grid" id="fieldsListContainer">
+          <!-- Dynamic Field Cards Injected by JS -->
+        </div>
+      </section>
+
+      <!-- TAB 4: SUBSCRIPTION & 7-DAY TRIAL -->
+      <section class="tab-content-panel" id="tabSubscriptions">
+        <div class="section-title-bar">
+          <div>
+            <h2>7-दिन फ्री ट्रायल एवं सब्सक्रिप्शन प्रबंधन</h2>
+            <p>सभी उपयोगकर्ताओं की ट्रायल स्थिति देखें, ट्रायल बढ़ाएं अथवा प्रीमियम सक्रिय करें</p>
+          </div>
+          <button type="button" class="btn-refresh" id="btnRefreshSubs">
+            🔄 रीफ़्रेश सूची
+          </button>
+        </div>
+
+        <!-- Subscriptions Search & Filter Toolbar -->
+        <div class="toolbar-box">
+          <div class="search-input-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="subSearchInput" placeholder="फ़ोन नंबर द्वारा खोजें...">
+          </div>
+          <div class="status-filter-pills" id="subStatusFilter">
+            <button type="button" class="filter-pill active" data-status="all">सभी (All)</button>
+            <button type="button" class="filter-pill" data-status="trial">⏳ ट्रायल सक्रिय (Trial Active)</button>
+            <button type="button" class="filter-pill" data-status="expired">⚠️ ट्रायल समाप्त (Expired)</button>
+            <button type="button" class="filter-pill" data-status="active">👑 प्रीमियम (Subscribed)</button>
+          </div>
+        </div>
+
+        <!-- Subscriptions Table -->
+        <div class="table-responsive-container">
+          <table class="data-table" id="subsTable">
+            <thead>
+              <tr>
+                <th>मोबाइल नंबर</th>
+                <th>वर्तमान स्थिति</th>
+                <th>प्लान</th>
+                <th>ट्रायल शुरू</th>
+                <th>ट्रायल समाप्ति</th>
+                <th>शेष दिन</th>
+                <th>बनाए गए कार्ड</th>
+                <th>त्वरित कार्यवाही (Actions)</th>
+              </tr>
+            </thead>
+            <tbody id="subsTableBody">
+              <tr>
+                <td colspan="8" class="text-center py-6">सब्सक्रिप्शन लोड हो रहे हैं...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- TAB 5: SECURITY & PASSWORD -->
+      <section class="tab-content-panel" id="tabSecurity">
+        <div class="section-title-bar">
+          <div>
+            <h2>एडमिन सुरक्षा एवं पासवर्ड</h2>
+            <p>अपने एडमिन पोर्टल का पासवर्ड बदलें</p>
+          </div>
+        </div>
+
+        <div class="security-card-box">
+          <h3>🔐 पासवर्ड बदलें (Change Password)</h3>
+          <form id="changePasswordForm" class="security-form">
+            <div class="form-group">
+              <label for="currentPassword">वर्तमान पासवर्ड (Current Password)</label>
+              <input type="password" id="currentPassword" required placeholder="वर्तमान पासवर्ड दर्ज करें">
+            </div>
+
+            <div class="form-group">
+              <label for="newPassword">नया पासवर्ड (New Password)</label>
+              <input type="password" id="newPassword" required minlength="6" placeholder="नया पासवर्ड (कम से कम 6 अक्षर)">
+            </div>
+
+            <div class="form-group">
+              <label for="confirmNewPassword">नए पासवर्ड की पुष्टि करें</label>
+              <input type="password" id="confirmNewPassword" required minlength="6" placeholder="नया पासवर्ड पुनः दर्ज करें">
+            </div>
+
+            <button type="submit" class="btn-save-primary">
+              पासवर्ड अपडेट करें
+            </button>
+          </form>
+        </div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- CARD DETAILS MODAL -->
+  <div class="admin-modal-overlay" id="cardDetailModal">
+    <div class="admin-modal-card">
+      <div class="admin-modal-header">
+        <h3 id="modalCardTitle">पहचान पत्र विवरण</h3>
+        <button type="button" class="modal-close" id="btnCloseCardModal">&times;</button>
+      </div>
+      <div class="admin-modal-body" id="modalCardBody">
+        <!-- Injected by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div class="admin-toast" id="adminToast">
+    <span id="adminToastMsg">सफलतापूर्वक अपडेट किया गया!</span>
+  </div>
+
+  <script type="module" src="/src/admin.js"></script>
+</body>
+</html>
