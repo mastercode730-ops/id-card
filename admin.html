@@ -279,16 +279,70 @@
         </div>
       </section>
 
-      <!-- TAB 4: SUBSCRIPTION & 7-DAY TRIAL -->
+      <!-- TAB 4: SUBSCRIPTION & TRIAL MANAGEMENT -->
       <section class="tab-content-panel" id="tabSubscriptions">
         <div class="section-title-bar">
           <div>
-            <h2>7-दिन फ्री ट्रायल एवं सब्सक्रिप्शन प्रबंधन</h2>
-            <p>सभी उपयोगकर्ताओं की ट्रायल स्थिति देखें, ट्रायल बढ़ाएं अथवा प्रीमियम सक्रिय करें</p>
+            <h2>ट्रायल अवधि एवं सब्सक्रिप्शन प्लान्स प्रबंधन</h2>
+            <p>यहाँ से आप फ्री ट्रायल के दिन बदल सकते हैं, नए प्लान्स बना सकते हैं और उपयोगकर्ताओं की स्थिति नियंत्रित कर सकते हैं</p>
           </div>
           <button type="button" class="btn-refresh" id="btnRefreshSubs">
             🔄 रीफ़्रेश सूची
           </button>
+        </div>
+
+        <!-- 1. TRIAL DAYS & GLOBAL SETTINGS BOX -->
+        <div class="admin-settings-card">
+          <div class="card-header-flex">
+            <div>
+              <h3>⏳ डिफ़ॉल्ट फ्री ट्रायल अवधि (Free Trial Days Setting)</h3>
+              <p>नया यूजर रजिस्टर होते ही उसे इतने दिनों का फ्री ट्रायल स्वचालित रूप से मिलेगा</p>
+            </div>
+            <button type="button" class="btn-save-primary" id="btnSaveTrialSetting">
+              💾 ट्रायल सेटिंग्स सहेजें
+            </button>
+          </div>
+
+          <div class="trial-settings-form-row">
+            <div class="setting-input-wrap">
+              <label for="settingTrialDays">फ्री ट्रायल अवधि (दिनों में / In Days):</label>
+              <div class="input-with-unit">
+                <input type="number" id="settingTrialDays" min="1" max="365" value="7">
+                <span class="unit-text">दिन (Days)</span>
+              </div>
+            </div>
+
+            <div class="setting-switch-wrap">
+              <span class="switch-label">फ्री ट्रायल चालू रखें</span>
+              <label class="switch">
+                <input type="checkbox" id="settingTrialEnabled" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. SUBSCRIPTION PRICING PLANS MANAGER BOX -->
+        <div class="admin-settings-card">
+          <div class="card-header-flex">
+            <div>
+              <h3>👑 सब्सक्रिप्शन प्लान्स एवं मूल्य (Subscription Plans & Pricing)</h3>
+              <p>उपयोगकर्ताओं को ट्रायल खत्म होने पर दिखाए जाने वाले प्लान्स, उनकी वैधता एवं कीमतें बदलें</p>
+            </div>
+            <button type="button" class="btn-save-primary" id="btnSavePlans">
+              💾 सभी प्लान्स सहेजें (Save All Plans)
+            </button>
+          </div>
+
+          <div class="plans-admin-grid" id="plansAdminContainer">
+            <!-- Dynamic Plan Cards injected by JS -->
+          </div>
+        </div>
+
+        <!-- 3. REGISTERED USERS & TRIAL STATUS TABLE -->
+        <div class="section-subtitle-bar">
+          <h3>👥 पंजीकृत उपयोगकर्ता एवं स्थिति (Registered Users & Status)</h3>
+          <span class="subtitle-hint">सभी रजिस्टर्ड उपयोगकर्ताओं की वर्तमान स्थिति एवं कार्ड्स की संख्या</span>
         </div>
 
         <!-- Subscriptions Search & Filter Toolbar -->

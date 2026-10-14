@@ -88,7 +88,11 @@ const state = {
   sampleAssets: null,
   cardGenerated: false,
   fieldConfigs: [],
-  subscription: null
+  subscription: null,
+  userToken: localStorage.getItem('inld_user_token') || null,
+  currentUser: null,
+  trialDaysSetting: 7,
+  subscriptionPlans: []
 };
 
 // DOM Elements
@@ -105,12 +109,48 @@ const elements = {
   tabFront: document.getElementById('tabFront'),
   tabBack: document.getElementById('tabBack'),
 
+  // User Header Controls
+  headerGuestActions: document.getElementById('headerGuestActions'),
+  btnOpenLogin: document.getElementById('btnOpenLogin'),
+  btnOpenRegister: document.getElementById('btnOpenRegister'),
+  headerUserProfile: document.getElementById('headerUserProfile'),
+  headerUserAvatar: document.getElementById('headerUserAvatar'),
+  headerUserName: document.getElementById('headerUserName'),
+  headerUserStatus: document.getElementById('headerUserStatus'),
+  btnLogoutUser: document.getElementById('btnLogoutUser'),
+
+  // End-User Auth Modal
+  userAuthModal: document.getElementById('userAuthModal'),
+  authModalClose: document.getElementById('authModalClose'),
+  authModalHeading: document.getElementById('authModalHeading'),
+  authModalSubheading: document.getElementById('authModalSubheading'),
+  tabBtnRegister: document.getElementById('tabBtnRegister'),
+  tabBtnLogin: document.getElementById('tabBtnLogin'),
+  panelRegister: document.getElementById('panelRegister'),
+  panelLogin: document.getElementById('panelLogin'),
+  regTrialDaysLabel: document.getElementById('regTrialDaysLabel'),
+  formUserRegister: document.getElementById('formUserRegister'),
+  regName: document.getElementById('regName'),
+  regPhone: document.getElementById('regPhone'),
+  regPassword: document.getElementById('regPassword'),
+  regErrorMsg: document.getElementById('regErrorMsg'),
+  btnSubmitRegister: document.getElementById('btnSubmitRegister'),
+  linkSwitchToLogin: document.getElementById('linkSwitchToLogin'),
+  formUserLogin: document.getElementById('formUserLogin'),
+  loginPhone: document.getElementById('loginPhone'),
+  loginPassword: document.getElementById('loginPassword'),
+  loginErrorMsg: document.getElementById('loginErrorMsg'),
+  btnSubmitLogin: document.getElementById('btnSubmitLogin'),
+  linkSwitchToRegister: document.getElementById('linkSwitchToRegister'),
+
   // Trial & Subscription
   trialStatusBadge: document.getElementById('trialStatusBadge'),
   trialStatusText: document.getElementById('trialStatusText'),
   subscriptionModal: document.getElementById('subscriptionModal'),
   subModalClose: document.getElementById('subModalClose'),
-  choosePlanBtns: document.querySelectorAll('.btn-choose-plan'),
+  subModalHeading: document.getElementById('subModalHeading'),
+  subModalSubheading: document.getElementById('subModalSubheading'),
+  plansGridContainer: document.getElementById('plansGridContainer'),
 
   // Inputs
   photoInput: document.getElementById('photoInput'),
@@ -322,42 +362,228 @@ async function loadAndApplyFieldConfigs() {
   }
 }
 
-// Check 7-Day Free Trial / Subscription Status
-async function checkSubscriptionStatus(phone) {
-  if (!phone || phone.length < 5) {
-    if (elements.trialStatusBadge) elements.trialStatusBadge.style.display = 'none';
-    return null;
+// ==========================================
+// USER AUTHENTICATION & TRIAL / SUBSCRIPTION LOGIC
+// ==========================================
+
+// Helper to escape HTML safely
+function escapeHtml(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// Render Header User Profile or Guest Actions
+function renderHeaderUser() {
+  if (state.currentUser) {
+    if (elements.headerGuestActions) elements.headerGuestActions.style.display = 'none';
+    if (elements.headerUserProfile) elements.headerUserProfile.style.display = 'flex';
+
+    if (elements.headerUserName) {
+      elements.headerUserName.textContent = state.currentUser.name || 'सदस्य';
+    }
+    if (elements.headerUserAvatar) {
+      elements.headerUserAvatar.textContent = (state.currentUser.name || 'U')[0].toUpperCase();
+    }
+    if (elements.headerUserStatus) {
+      if (state.currentUser.isSubscribed) {
+        elements.headerUserStatus.textContent = '👑 ' + (state.currentUser.planName || 'प्रीमियम');
+        elements.headerUserStatus.style.color = '#fef08a';
+      } else if (state.currentUser.isTrialActive) {
+        elements.headerUserStatus.textContent = `⏳ ${state.currentUser.daysRemaining} दिन ट्रायल`;
+        elements.headerUserStatus.style.color = '#86efac';
+      } else {
+        elements.headerUserStatus.textContent = '⚠️ ट्रायल समाप्त';
+        elements.headerUserStatus.style.color = '#fca5a5';
+      }
+    }
+
+    // Auto-fill member form fields if empty
+    if (elements.inputName && !elements.inputName.value.trim()) {
+      elements.inputName.value = state.currentUser.name;
+    }
+    if (elements.inputMobile && !elements.inputMobile.value.trim() && state.currentUser.phone) {
+      elements.inputMobile.value = state.currentUser.phone;
+    }
+    if (elements.whatsappNumber && !elements.whatsappNumber.value.trim() && state.currentUser.phone) {
+      elements.whatsappNumber.value = state.currentUser.phone;
+    }
+  } else {
+    if (elements.headerGuestActions) elements.headerGuestActions.style.display = 'flex';
+    if (elements.headerUserProfile) elements.headerUserProfile.style.display = 'none';
+  }
+}
+
+// Check User Session on load
+async function checkUserSession() {
+  if (!state.userToken) {
+    renderHeaderUser();
+    return;
   }
 
   try {
-    const res = await fetch(`/api/subscriptions/check?phone=${encodeURIComponent(phone)}`);
+    const res = await fetch('/api/user/me', {
+      headers: { 'Authorization': `Bearer ${state.userToken}` }
+    });
     const data = await res.json();
-    if (data.success && data.subscription) {
-      state.subscription = data.subscription;
-      renderTrialBadge(data.subscription);
-      return data.subscription;
+    if (data.success && data.user) {
+      state.currentUser = data.user;
+    } else {
+      state.userToken = null;
+      state.currentUser = null;
+      localStorage.removeItem('inld_user_token');
     }
   } catch (err) {
-    console.warn('Subscription check error:', err);
+    console.warn('User session check skipped:', err);
   }
-  return null;
+  renderHeaderUser();
 }
 
-// Render Trial Badge
-function renderTrialBadge(sub) {
-  if (!elements.trialStatusBadge) return;
+// Load Subscription Plans & Trial Days Setting
+async function loadSubscriptionPlans() {
+  try {
+    const res = await fetch('/api/subscription-plans');
+    const data = await res.json();
+    if (data.success) {
+      state.trialDaysSetting = data.trialDays || 7;
+      state.subscriptionPlans = data.plans || [];
 
-  elements.trialStatusBadge.style.display = 'flex';
-  elements.trialStatusBadge.className = 'trial-status-badge';
+      if (elements.regTrialDaysLabel) {
+        elements.regTrialDaysLabel.textContent = `${state.trialDaysSetting} दिन`;
+      }
 
-  if (sub.isSubscribed) {
-    elements.trialStatusBadge.classList.add('active-premium');
-    elements.trialStatusText.textContent = '👑 प्रीमियम सक्रिय • असीमित कार्ड्स';
-  } else if (sub.isTrialActive) {
-    elements.trialStatusText.textContent = `⏳ 7-दिन निःशुल्क ट्रायल सक्रिय (${sub.daysRemaining} दिन शेष)`;
+      renderPlansGrid(state.subscriptionPlans);
+    }
+  } catch (err) {
+    console.warn('Subscription plans fetch skipped:', err);
+  }
+}
+
+// Render Dynamic Plans Grid in Subscription Modal
+function renderPlansGrid(plans) {
+  if (!elements.plansGridContainer) return;
+  if (!plans || plans.length === 0) {
+    elements.plansGridContainer.innerHTML = '<p style="color:var(--text-muted); text-align:center; grid-column:1/-1;">कोई प्लान उपलब्ध नहीं है।</p>';
+    return;
+  }
+
+  elements.plansGridContainer.innerHTML = plans.map(p => {
+    const isPopular = p.plan_key === 'yearly' || (p.badge_text && p.badge_text.includes('लोकप्रिय'));
+    const featuresList = (p.features || []).map(f => `<li>✓ ${escapeHtml(f)}</li>`).join('');
+
+    return `
+      <div class="plan-card ${isPopular ? 'popular-plan' : ''}" data-plan="${escapeHtml(p.plan_key)}">
+        ${p.badge_text ? `<span class="plan-popular-badge">${escapeHtml(p.badge_text)}</span>` : ''}
+        <span class="plan-tag ${isPopular ? 'tag-gold' : ''}">${escapeHtml(p.name_hi || p.plan_key)}</span>
+        <h4>₹${Number(p.price || 0)}</h4>
+        <span class="plan-period">${escapeHtml(p.period_label || `${p.duration_days} दिन`)}</span>
+        <ul class="plan-features">
+          ${featuresList || '<li>✓ असीमित HD कार्ड निर्माण</li><li>✓ Front & Back दोनों साइड्स</li>'}
+        </ul>
+        <button type="button" class="btn-choose-plan ${isPopular ? 'btn-plan-popular' : ''}" data-plan="${escapeHtml(p.plan_key)}">
+          ${escapeHtml(p.name_hi || 'प्लान')} लें (₹${Number(p.price || 0)})
+        </button>
+      </div>
+    `;
+  }).join('');
+
+  // Rebind plan buttons
+  elements.plansGridContainer.querySelectorAll('.btn-choose-plan').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const planKey = btn.dataset.plan;
+      subscribeToPlan(planKey, btn);
+    });
+  });
+}
+
+// User Subscribes to Plan
+async function subscribeToPlan(planKey, btn) {
+  if (!state.currentUser) {
+    closeSubscriptionModal();
+    openAuthModal('login', 'सब्सक्रिप्शन लेने के लिए कृपया पहले लॉगिन करें।');
+    return;
+  }
+
+  const originalText = btn ? btn.textContent : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'सक्रिय किया जा रहा है...';
+  }
+
+  try {
+    const res = await fetch('/api/user/subscribe', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.userToken}`
+      },
+      body: JSON.stringify({ planKey })
+    });
+    const data = await res.json();
+    if (data.success && data.user) {
+      state.currentUser = data.user;
+      renderHeaderUser();
+      closeSubscriptionModal();
+      showToast('👑 बधाई! आपका प्रीमियम प्लान सक्रिय हो गया है!');
+      confetti({
+        particleCount: 100,
+        spread: 80,
+        origin: { y: 0.5 },
+        colors: ['#0b4d2e', '#d4af37', '#16a34a', '#fce278']
+      });
+      // If form is valid, auto submit
+      elements.form.requestSubmit();
+    } else {
+      showToast(data.error || 'सब्सक्राइब करने में त्रुटि', false);
+    }
+  } catch (err) {
+    showToast('सब्सक्रिप्शन प्रक्रिया विफल रही', false);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  }
+}
+
+// Auth Modal Helpers
+function openAuthModal(tab = 'register', promptMsg = '') {
+  if (!elements.userAuthModal) return;
+
+  if (promptMsg && elements.authModalSubheading) {
+    elements.authModalSubheading.textContent = promptMsg;
+  } else if (elements.authModalSubheading) {
+    elements.authModalSubheading.textContent = 'नया खाता बनाएं और तुरंत अपना निःशुल्क ट्रायल शुरू करें';
+  }
+
+  if (elements.regErrorMsg) elements.regErrorMsg.style.display = 'none';
+  if (elements.loginErrorMsg) elements.loginErrorMsg.style.display = 'none';
+
+  switchAuthTab(tab);
+  elements.userAuthModal.classList.add('active');
+}
+
+function closeAuthModal() {
+  if (elements.userAuthModal) {
+    elements.userAuthModal.classList.remove('active');
+  }
+}
+
+function switchAuthTab(tab = 'register') {
+  if (tab === 'register') {
+    elements.tabBtnRegister?.classList.add('active');
+    elements.tabBtnLogin?.classList.remove('active');
+    if (elements.panelRegister) elements.panelRegister.style.display = 'block';
+    if (elements.panelLogin) elements.panelLogin.style.display = 'none';
   } else {
-    elements.trialStatusBadge.classList.add('trial-expired');
-    elements.trialStatusText.textContent = '⚠️ 7-दिन का ट्रायल समाप्त • कार्ड बनाने हेतु सब्सक्राइब करें';
+    elements.tabBtnLogin?.classList.add('active');
+    elements.tabBtnRegister?.classList.remove('active');
+    if (elements.panelLogin) elements.panelLogin.style.display = 'block';
+    if (elements.panelRegister) elements.panelRegister.style.display = 'none';
   }
 }
 
@@ -372,6 +598,7 @@ function closeSubscriptionModal() {
     elements.subscriptionModal.classList.remove('active');
   }
 }
+
 
 // Comprehensive Dynamic Form Validation
 function validateForm() {
@@ -588,6 +815,139 @@ function loadSampleData() {
   showToast('✓ नमूना डेटा (Sample Data) लोड हो गया है। अब "कार्ड बनाएं" पर क्लिक करें!');
 }
 
+// ==========================================
+// USER AUTH ACTIONS (REGISTER, LOGIN, LOGOUT)
+// ==========================================
+
+function showAuthError(el, msg) {
+  if (el) {
+    el.textContent = `⚠️ ${msg}`;
+    el.style.display = 'block';
+  }
+}
+
+// Handle Registration
+async function handleRegister(e) {
+  e.preventDefault();
+  const name = elements.regName.value.trim();
+  const phone = elements.regPhone.value.trim();
+  const password = elements.regPassword.value;
+
+  if (elements.regErrorMsg) elements.regErrorMsg.style.display = 'none';
+
+  if (!name || name.length < 2) {
+    showAuthError(elements.regErrorMsg, 'कृपया अपना पूरा नाम दर्ज करें');
+    return;
+  }
+  if (!phone || phone.length < 10) {
+    showAuthError(elements.regErrorMsg, 'कृपया 10 अंकों का मान्य मोबाइल नंबर दर्ज करें');
+    return;
+  }
+  if (!password || password.length < 4) {
+    showAuthError(elements.regErrorMsg, 'पासवर्ड कम से कम 4 अक्षरों का होना चाहिए');
+    return;
+  }
+
+  elements.btnSubmitRegister.disabled = true;
+  elements.btnSubmitRegister.textContent = 'खाता बनाया जा रहा है...';
+
+  try {
+    const res = await fetch('/api/user/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, phone, password })
+    });
+    const data = await res.json();
+
+    if (data.success && data.token) {
+      state.userToken = data.token;
+      state.currentUser = data.user;
+      localStorage.setItem('inld_user_token', data.token);
+
+      closeAuthModal();
+      renderHeaderUser();
+
+      showToast(`🎉 बधाई! आपका ${data.trialDays || 7} दिन का फ्री ट्रायल शुरू हो गया है!`);
+      confetti({
+        particleCount: 100,
+        spread: 80,
+        origin: { y: 0.5 },
+        colors: ['#0b4d2e', '#d4af37', '#16a34a', '#fce278']
+      });
+
+      // Auto fill form inputs
+      if (elements.inputName && !elements.inputName.value) elements.inputName.value = name;
+      if (elements.inputMobile && !elements.inputMobile.value) elements.inputMobile.value = phone;
+    } else {
+      showAuthError(elements.regErrorMsg, data.error || 'पंजीकरण में त्रुटि हुई');
+    }
+  } catch (err) {
+    showAuthError(elements.regErrorMsg, 'नेटवर्क त्रुटि, कृपया पुनः प्रयास करें');
+  } finally {
+    elements.btnSubmitRegister.disabled = false;
+    elements.btnSubmitRegister.textContent = '🚀 खाता बनाएं और फ्री ट्रायल शुरू करें';
+  }
+}
+
+// Handle Login
+async function handleLogin(e) {
+  e.preventDefault();
+  const phone = elements.loginPhone.value.trim();
+  const password = elements.loginPassword.value;
+
+  if (elements.loginErrorMsg) elements.loginErrorMsg.style.display = 'none';
+
+  if (!phone) {
+    showAuthError(elements.loginErrorMsg, 'कृपया अपना मोबाइल नंबर दर्ज करें');
+    return;
+  }
+  if (!password) {
+    showAuthError(elements.loginErrorMsg, 'कृपया अपना पासवर्ड दर्ज करें');
+    return;
+  }
+
+  elements.btnSubmitLogin.disabled = true;
+  elements.btnSubmitLogin.textContent = 'लॉगिन किया जा रहा है...';
+
+  try {
+    const res = await fetch('/api/user/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, password })
+    });
+    const data = await res.json();
+
+    if (data.success && data.token) {
+      state.userToken = data.token;
+      state.currentUser = data.user;
+      localStorage.setItem('inld_user_token', data.token);
+
+      closeAuthModal();
+      renderHeaderUser();
+      showToast(`✓ स्वागत है, ${data.user.name}!`);
+
+      if (elements.inputName && !elements.inputName.value) elements.inputName.value = data.user.name;
+      if (elements.inputMobile && !elements.inputMobile.value) elements.inputMobile.value = data.user.phone;
+    } else {
+      showAuthError(elements.loginErrorMsg, data.error || 'लॉगिन में त्रुटि');
+    }
+  } catch (err) {
+    showAuthError(elements.loginErrorMsg, 'नेटवर्क त्रुटि, कृपया पुनः प्रयास करें');
+  } finally {
+    elements.btnSubmitLogin.disabled = false;
+    elements.btnSubmitLogin.textContent = '🔑 लॉगिन करें';
+  }
+}
+
+// Handle Logout
+function handleLogout() {
+  state.userToken = null;
+  state.currentUser = null;
+  localStorage.removeItem('inld_user_token');
+  renderHeaderUser();
+  showToast('सफलतापूर्वक लॉगआउट कर दिया गया है।');
+}
+
 // Initialize Application
 async function init() {
   initCountryCodes();
@@ -599,14 +959,51 @@ async function init() {
     console.error('Assets loading error:', err);
   }
 
-  // Load dynamic fields config from admin
-  await loadAndApplyFieldConfigs();
+  // Load user session, subscription plans & trial days setting, and dynamic form fields
+  await Promise.all([
+    checkUserSession(),
+    loadSubscriptionPlans(),
+    loadAndApplyFieldConfigs()
+  ]);
 
   setupEventListeners();
 }
 
 // Event Listeners
 function setupEventListeners() {
+  // Header User Auth Buttons
+  elements.btnOpenLogin?.addEventListener('click', () => openAuthModal('login'));
+  elements.btnOpenRegister?.addEventListener('click', () => openAuthModal('register'));
+  elements.btnLogoutUser?.addEventListener('click', handleLogout);
+
+  // Auth Modal Controls
+  elements.authModalClose?.addEventListener('click', closeAuthModal);
+  elements.userAuthModal?.addEventListener('click', (e) => {
+    if (e.target === elements.userAuthModal) closeAuthModal();
+  });
+  elements.tabBtnRegister?.addEventListener('click', () => switchAuthTab('register'));
+  elements.tabBtnLogin?.addEventListener('click', () => switchAuthTab('login'));
+  elements.linkSwitchToLogin?.addEventListener('click', (e) => {
+    e.preventDefault();
+    switchAuthTab('login');
+  });
+  elements.linkSwitchToRegister?.addEventListener('click', (e) => {
+    e.preventDefault();
+    switchAuthTab('register');
+  });
+
+  // Auth Forms Submit
+  elements.formUserRegister?.addEventListener('submit', handleRegister);
+  elements.formUserLogin?.addEventListener('submit', handleLogin);
+
+  // Restrict register phone to digits only
+  elements.regPhone?.addEventListener('input', () => {
+    elements.regPhone.value = elements.regPhone.value.replace(/[^0-9]/g, '');
+  });
+  elements.loginPhone?.addEventListener('input', () => {
+    elements.loginPhone.value = elements.loginPhone.value.replace(/[^0-9]/g, '');
+  });
+
   // State dropdown change -> update districts
   elements.selectState.addEventListener('change', () => {
     updateDistrictsForState(elements.selectState.value);
@@ -701,66 +1098,17 @@ function setupEventListeners() {
   // Sample data button
   elements.btnFillSampleQuick.addEventListener('click', loadSampleData);
 
-  // Auto-check trial on mobile or whatsapp blur
-  elements.inputMobile.addEventListener('blur', () => {
-    checkSubscriptionStatus(elements.inputMobile.value.trim());
-  });
-  elements.whatsappNumber.addEventListener('blur', () => {
-    checkSubscriptionStatus(elements.whatsappNumber.value.trim());
-  });
-
   // Subscription Modal Controls
   elements.subModalClose?.addEventListener('click', closeSubscriptionModal);
   elements.subscriptionModal?.addEventListener('click', (e) => {
     if (e.target === elements.subscriptionModal) closeSubscriptionModal();
   });
 
-  // Choose Plan buttons
-  elements.choosePlanBtns.forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const planName = btn.dataset.plan || 'yearly';
-      const phone = elements.inputMobile.value.trim() || elements.whatsappNumber.value.trim();
-      if (!phone) {
-        showToast('कृपया पहले मोबाइल नंबर दर्ज करें', false);
-        closeSubscriptionModal();
-        return;
-      }
-
-      btn.disabled = true;
-      const originalText = btn.textContent;
-      btn.textContent = 'सक्रिय किया जा रहा है...';
-
-      try {
-        const res = await fetch('/api/subscriptions/subscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone, planName })
-        });
-        const data = await res.json();
-        if (data.success && data.subscription) {
-          state.subscription = data.subscription;
-          renderTrialBadge(data.subscription);
-          closeSubscriptionModal();
-          showToast('👑 बधाई! आपका प्रीमियम प्लान सक्रिय हो गया है!');
-          // Automatically trigger card generation
-          elements.form.requestSubmit();
-        } else {
-          showToast(data.error || 'सब्सक्राइब करने में त्रुटि', false);
-        }
-      } catch (err) {
-        showToast('त्रुटि हुई', false);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = originalText;
-      }
-    });
-  });
-
   // Form Submit: "कार्ड बनाएं"
   elements.form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    // Run strict validation
+    // 1. Run strict form validation
     const { isValid, firstInvalidEl } = validateForm();
 
     if (!isValid) {
@@ -772,30 +1120,41 @@ function setupEventListeners() {
       return;
     }
 
-    // Check 7-Day Free Trial / Subscription Status
-    const phone = elements.inputMobile.value.trim() || elements.whatsappNumber.value.trim();
-    if (phone) {
-      const sub = await checkSubscriptionStatus(phone);
-      if (sub && !sub.canGenerateCard) {
-        openSubscriptionModal();
-        return;
-      }
+    // 2. Check User Authentication
+    if (!state.currentUser) {
+      openAuthModal('register', 'कार्ड बनाने के लिए कृपया खाता बनाएं — तुरंत निःशुल्क ट्रायल शुरू होगा!');
+      return;
     }
 
-    // Generate Card
+    // 3. Check Free Trial / Subscription Status
+    if (!state.currentUser.canGenerateCard) {
+      openSubscriptionModal();
+      return;
+    }
+
+    // 4. Generate Card
     await updateCard();
     state.cardGenerated = true;
 
-    // Send Card Creation Log to Backend
+    // 5. Send Card Creation Log to Backend
     try {
       const cardData = {
         ...getFormData(),
         photoThumb: state.userPhoto ? elements.photoThumb.src : ''
       };
+      const headers = { 'Content-Type': 'application/json' };
+      if (state.userToken) {
+        headers['Authorization'] = `Bearer ${state.userToken}`;
+      }
+
       fetch('/api/cards', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(cardData)
+      }).then(r => r.json()).then(data => {
+        if (data.success && state.currentUser) {
+          state.currentUser.totalCardsCreated = (state.currentUser.totalCardsCreated || 0) + 1;
+        }
       }).catch(err => console.warn('Card log failed:', err));
     } catch (e) {}
 

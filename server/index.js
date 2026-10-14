@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { initDb, query, get, run } from './db.js';
+import { initDb, query, get, run, getSetting, setSetting } from './db.js';
 
 dotenv.config();
 
@@ -21,7 +21,7 @@ app.use(cors());
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
-// Auth Middleware
+// Admin Auth Middleware
 function authenticateAdmin(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -31,6 +31,9 @@ function authenticateAdmin(req, res, next) {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
+    if (decoded.role !== 'admin' && decoded.role !== 'superadmin') {
+      return res.status(403).json({ success: false, error: 'Forbidden: Admin access required' });
+    }
     req.admin = decoded;
     next();
   } catch (err) {
@@ -38,8 +41,416 @@ function authenticateAdmin(req, res, next) {
   }
 }
 
+// User Auth Middleware (Optional / Required)
+function authenticateUser(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, error: 'कृपया पहले लॉगिन करें।' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ success: false, error: 'सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।' });
+  }
+}
+
+function optionalUserAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      req.user = decoded;
+    } catch (e) {}
+  }
+  next();
+}
+
+// Phone normalizer
+function normalizePhone(rawPhone) {
+  if (!rawPhone) return '';
+  const digits = String(rawPhone).replace(/\D/g, '');
+  if (digits.length > 10 && digits.startsWith('91')) {
+    return digits.slice(-10);
+  }
+  return digits;
+}
+
+// Evaluate User Subscription & Trial
+function evaluateUserStatus(user) {
+  const now = new Date();
+  const trialExpires = new Date(user.trial_expires_at);
+  const subExpires = user.subscription_expires_at ? new Date(user.subscription_expires_at) : null;
+
+  const isSubscribed = Boolean(
+    user.status === 'active' && (!subExpires || subExpires > now)
+  );
+
+  const msRemaining = trialExpires.getTime() - now.getTime();
+  const daysRemaining = Math.max(0, Math.ceil(msRemaining / (1000 * 60 * 60 * 24)));
+  const isTrialActive = !isSubscribed && msRemaining > 0 && user.status !== 'blocked';
+  const isExpired = !isSubscribed && !isTrialActive;
+
+  let currentStatus = user.status;
+  if (isSubscribed) {
+    currentStatus = 'active';
+  } else if (isTrialActive) {
+    currentStatus = 'trial';
+  } else if (user.status !== 'blocked') {
+    currentStatus = 'expired';
+  }
+
+  return {
+    id: user.id,
+    name: user.name,
+    phone: user.phone,
+    email: user.email || '',
+    status: currentStatus,
+    planName: user.plan_name || 'free_trial',
+    isSubscribed,
+    isTrialActive,
+    canGenerateCard: isSubscribed || isTrialActive,
+    daysRemaining,
+    trialStartedAt: user.trial_started_at,
+    trialExpiresAt: user.trial_expires_at,
+    subscriptionExpiresAt: user.subscription_expires_at,
+    totalCardsCreated: Number(user.total_cards_created || 0)
+  };
+}
+
 // ==========================================
-// 1. AUTHENTICATION ROUTES
+// 1. END-USER AUTHENTICATION (REGISTER / LOGIN)
+// ==========================================
+
+// User Registration: Starts Free Trial Automatically
+app.post('/api/user/register', async (req, res) => {
+  try {
+    const { name, phone: rawPhone, email, password } = req.body;
+    const phone = normalizePhone(rawPhone);
+
+    if (!name || name.trim().length < 2) {
+      return res.status(400).json({ success: false, error: 'कृपया अपना पूरा नाम दर्ज करें।' });
+    }
+    if (!phone || phone.length < 10) {
+      return res.status(400).json({ success: false, error: 'कृपया 10 अंकों का मान्य मोबाइल नंबर दर्ज करें।' });
+    }
+    if (!password || password.length < 4) {
+      return res.status(400).json({ success: false, error: 'पासवर्ड कम से कम 4 अक्षरों का होना चाहिए।' });
+    }
+
+    // Check if phone already registered
+    const existingUser = await get(`SELECT * FROM users WHERE phone = ?`, [phone]);
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        error: 'यह मोबाइल नंबर पहले से पंजीकृत है। कृपया लॉगिन करें।'
+      });
+    }
+
+    // Read admin-configured default trial days
+    const trialDaysSetting = await getSetting('default_trial_days', '7');
+    const trialDays = Math.max(1, parseInt(trialDaysSetting, 10) || 7);
+
+    const now = new Date();
+    const trialExpires = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(password, salt);
+
+    // Insert user
+    const insertRes = await run(
+      `INSERT INTO users (name, phone, email, password_hash, trial_started_at, trial_expires_at, status, plan_name, total_cards_created)
+       VALUES (?, ?, ?, ?, ?, ?, 'trial', 'free_trial', 0)`,
+      [name.trim(), phone, email?.trim() || null, passwordHash, now.toISOString(), trialExpires.toISOString()]
+    );
+
+    const userId = insertRes.lastInsertRowid || insertRes.id;
+    const user = await get(`SELECT * FROM users WHERE id = ?`, [userId]);
+
+    // Issue JWT Token
+    const token = jwt.sign(
+      { id: user.id, phone: user.phone, name: user.name, role: 'user' },
+      JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    console.log(`✓ New User Registered: ${user.name} (${user.phone}) with ${trialDays}-day free trial`);
+
+    res.json({
+      success: true,
+      message: `पंजीकरण सफल! आपका ${trialDays} दिन का निःशुल्क ट्रायल शुरू हो गया है।`,
+      token,
+      user: evaluateUserStatus(user),
+      trialDays
+    });
+  } catch (err) {
+    console.error('Registration error:', err);
+    res.status(500).json({ success: false, error: 'पंजीकरण में त्रुटि हुई। कृपया पुनः प्रयास करें।' });
+  }
+});
+
+// User Login
+app.post('/api/user/login', async (req, res) => {
+  try {
+    const { phone, phoneOrEmail, email, password } = req.body;
+    const cleanInput = String(phone || phoneOrEmail || email || '').trim();
+    if (!cleanInput || !password) {
+      return res.status(400).json({ success: false, error: 'मोबाइल नंबर और पासवर्ड आवश्यक हैं।' });
+    }
+
+    const phoneDigits = normalizePhone(cleanInput);
+
+    let user = null;
+    if (phoneDigits.length >= 10) {
+      user = await get(`SELECT * FROM users WHERE phone = ?`, [phoneDigits]);
+    }
+
+    if (!user) {
+      user = await get(`SELECT * FROM users WHERE email = ?`, [cleanInput]);
+    }
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        error: 'यह मोबाइल नंबर पंजीकृत नहीं है। कृपया पहले नया अकाउंट रजिस्टर करें।'
+      });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password_hash);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, error: 'गलत पासवर्ड दर्ज किया गया है।' });
+    }
+
+    // Issue JWT Token
+    const token = jwt.sign(
+      { id: user.id, phone: user.phone, name: user.name, role: 'user' },
+      JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    res.json({
+      success: true,
+      message: `स्वागत है, ${user.name}!`,
+      token,
+      user: evaluateUserStatus(user)
+    });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ success: false, error: 'लॉगिन में त्रुटि हुई।' });
+  }
+});
+
+// Current User Profile & Fresh Status Check
+app.get('/api/user/me', authenticateUser, async (req, res) => {
+  try {
+    const user = await get(`SELECT * FROM users WHERE id = ?`, [req.user.id]);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'उपयोगकर्ता नहीं मिला।' });
+    }
+    res.json({ success: true, user: evaluateUserStatus(user) });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'उपयोगकर्ता स्थिति प्राप्त करने में त्रुटि।' });
+  }
+});
+
+// User Subscribes to a Plan
+app.post('/api/user/subscribe', authenticateUser, async (req, res) => {
+  try {
+    const { planKey } = req.body;
+    if (!planKey) {
+      return res.status(400).json({ success: false, error: 'प्लान का चयन आवश्यक है।' });
+    }
+
+    const plan = await get(`SELECT * FROM subscription_plans WHERE plan_key = ? AND is_active = 1`, [planKey]);
+    if (!plan) {
+      return res.status(404).json({ success: false, error: 'चयनित प्लान उपलब्ध नहीं है।' });
+    }
+
+    const now = new Date();
+    const durationDays = Number(plan.duration_days) || 30;
+    const subExpires = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
+    await run(
+      `UPDATE users
+       SET status = 'active', plan_name = ?, subscription_expires_at = ?, updated_at = ?
+       WHERE id = ?`,
+      [plan.name_hi || plan.plan_key, subExpires.toISOString(), now.toISOString(), req.user.id]
+    );
+
+    const updated = await get(`SELECT * FROM users WHERE id = ?`, [req.user.id]);
+    res.json({
+      success: true,
+      message: `बधाई! ${plan.name_hi} प्रीमियम प्लान सफलतापूर्वक सक्रिय हो गया!`,
+      user: evaluateUserStatus(updated)
+    });
+  } catch (err) {
+    console.error('Subscription error:', err);
+    res.status(500).json({ success: false, error: 'सब्सक्रिप्शन सक्रिय करने में त्रुटि।' });
+  }
+});
+
+// Public: Get Active Subscription Plans & Current Trial Days Setting
+app.get('/api/subscription-plans', async (req, res) => {
+  try {
+    const plans = await query(
+      `SELECT * FROM subscription_plans WHERE is_active = 1 ORDER BY display_order ASC`
+    );
+    const trialDays = await getSetting('default_trial_days', '7');
+    const trialEnabled = await getSetting('trial_enabled', '1');
+
+    res.json({
+      success: true,
+      trialDays: parseInt(trialDays, 10) || 7,
+      trialEnabled: trialEnabled === '1',
+      plans: plans.map(p => ({
+        ...p,
+        features: p.features_json ? JSON.parse(p.features_json) : []
+      }))
+    });
+  } catch (err) {
+    console.error('Fetch plans error:', err);
+    res.status(500).json({ success: false, error: 'प्लान्स लोड करने में त्रुटि।' });
+  }
+});
+
+// ==========================================
+// 2. CARD GENERATION & LOGS
+// ==========================================
+
+// Create Card Log
+app.post('/api/cards', optionalUserAuth, async (req, res) => {
+  try {
+    const data = req.body;
+    let user = null;
+
+    if (req.user?.id) {
+      user = await get(`SELECT * FROM users WHERE id = ?`, [req.user.id]);
+    } else {
+      const phone = normalizePhone(data.mobile || data.whatsappNumber);
+      if (phone) {
+        user = await get(`SELECT * FROM users WHERE phone = ?`, [phone]);
+      }
+    }
+
+    // Enforce Trial & Subscription
+    if (user) {
+      const status = evaluateUserStatus(user);
+      if (!status.canGenerateCard) {
+        return res.status(403).json({
+          success: false,
+          error: 'आपका निःशुल्क ट्रायल समाप्त हो गया है। पहचान पत्र बनाने के लिए कृपया सब्सक्रिप्शन प्लान चुनें।',
+          trialExpired: true,
+          user: status
+        });
+      }
+
+      // Increment card counter for user
+      await run(
+        `UPDATE users SET total_cards_created = total_cards_created + 1, updated_at = ? WHERE id = ?`,
+        [new Date().toISOString(), user.id]
+      );
+    }
+
+    const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+
+    // Insert card log
+    const result = await run(
+      `INSERT INTO card_logs (
+        user_id, membership_no, name, father_name, mobile, state, district,
+        constituency, conscode, designation, dob, caste, booth,
+        whatsapp_number, photo_url, ip_address
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        user ? user.id : null,
+        data.membershipNo || '',
+        data.name || '',
+        data.father || '',
+        data.mobile || '',
+        data.state || '',
+        data.district || '',
+        data.constituency || '',
+        data.conscode || '',
+        data.designation || '',
+        data.dob || '',
+        data.caste || '',
+        data.booth || '',
+        data.whatsappNumber || '',
+        data.photoThumb || '',
+        ipAddress
+      ]
+    );
+
+    res.json({
+      success: true,
+      message: 'पहचान पत्र रिकॉर्ड सुरक्षित कर लिया गया।',
+      id: result.lastInsertRowid || result.id
+    });
+  } catch (err) {
+    console.error('Card log creation error:', err);
+    res.status(500).json({ success: false, error: 'कार्ड रिकॉर्ड सहेजने में त्रुटि हुई।' });
+  }
+});
+
+// Admin: Get all card logs
+app.get('/api/cards', authenticateAdmin, async (req, res) => {
+  try {
+    const { q, state, district, limit = 100, offset = 0 } = req.query;
+
+    let sql = `SELECT * FROM card_logs WHERE 1=1`;
+    const params = [];
+
+    if (q) {
+      sql += ` AND (name LIKE ? OR mobile LIKE ? OR father_name LIKE ? OR constituency LIKE ? OR caste LIKE ?)`;
+      const searchParam = `%${q.trim()}%`;
+      params.push(searchParam, searchParam, searchParam, searchParam, searchParam);
+    }
+
+    if (state && state !== 'all') {
+      sql += ` AND state = ?`;
+      params.push(state);
+    }
+
+    if (district && district !== 'all') {
+      sql += ` AND district = ?`;
+      params.push(district);
+    }
+
+    sql += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+    params.push(Number(limit), Number(offset));
+
+    const logs = await query(sql, params);
+    const totalRow = await get(`SELECT COUNT(*) as count FROM card_logs`);
+
+    res.json({
+      success: true,
+      total: Number(totalRow.count || totalRow.COUNT || 0),
+      logs
+    });
+  } catch (err) {
+    console.error('Fetch card logs error:', err);
+    res.status(500).json({ success: false, error: 'कार्ड लॉग्स लोड करने में त्रुटि।' });
+  }
+});
+
+// Admin: Delete card log
+app.delete('/api/cards/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await run(`DELETE FROM card_logs WHERE id = ?`, [id]);
+    res.json({ success: true, message: 'कार्ड लॉग सफलतापूर्वक हटा दिया गया।' });
+  } catch (err) {
+    console.error('Delete card log error:', err);
+    res.status(500).json({ success: false, error: 'कार्ड लॉग हटाने में त्रुटि।' });
+  }
+});
+
+// ==========================================
+// 3. ADMIN AUTHENTICATION
 // ==========================================
 
 // Admin Login
@@ -117,341 +528,207 @@ app.post('/api/auth/change-password', authenticateAdmin, async (req, res) => {
 });
 
 // ==========================================
-// 2. SUBSCRIPTION & 7-DAY TRIAL ROUTES
+// 4. ADMIN: TRIAL DAYS & SUBSCRIPTION PLANS MANAGEMENT
 // ==========================================
 
-// Normalize phone number (removes spaces, +, etc., keeps last 10 digits if 91 prefix)
-function normalizePhone(rawPhone) {
-  if (!rawPhone) return '';
-  const digits = String(rawPhone).replace(/\D/g, '');
-  if (digits.length > 10 && digits.startsWith('91')) {
-    return digits.slice(-10);
-  }
-  return digits;
-}
-
-// Helper to calculate trial status
-function evaluateSubscription(sub) {
-  const now = new Date();
-  const trialExpires = new Date(sub.trial_expires_at);
-  const subExpires = sub.subscription_expires_at ? new Date(sub.subscription_expires_at) : null;
-
-  const isSubscribed = Boolean(
-    sub.status === 'active' && (!subExpires || subExpires > now)
-  );
-
-  const msRemaining = trialExpires.getTime() - now.getTime();
-  const daysRemaining = Math.max(0, Math.ceil(msRemaining / (1000 * 60 * 60 * 24)));
-  const isTrialActive = !isSubscribed && msRemaining > 0 && sub.status !== 'blocked';
-  const isExpired = !isSubscribed && !isTrialActive;
-
-  let currentStatus = sub.status;
-  if (isSubscribed) {
-    currentStatus = 'active';
-  } else if (isTrialActive) {
-    currentStatus = 'trial';
-  } else if (sub.status !== 'blocked') {
-    currentStatus = 'expired';
-  }
-
-  return {
-    phone: sub.phone,
-    status: currentStatus,
-    planName: sub.plan_name || 'free_trial',
-    isSubscribed,
-    isTrialActive,
-    canGenerateCard: isSubscribed || isTrialActive,
-    daysRemaining,
-    trialStartedAt: sub.trial_started_at,
-    trialExpiresAt: sub.trial_expires_at,
-    subscriptionExpiresAt: sub.subscription_expires_at,
-    totalCardsCreated: Number(sub.total_cards_created || 0)
-  };
-}
-
-// Check or automatically initiate 7-day trial for a phone
-app.get('/api/subscriptions/check', async (req, res) => {
+// Get All Admin Settings (Trial Days & Subscription Plans)
+app.get('/api/admin/settings', authenticateAdmin, async (req, res) => {
   try {
-    const rawPhone = req.query.phone;
-    const phone = normalizePhone(rawPhone);
+    const trialDays = await getSetting('default_trial_days', '7');
+    const trialEnabled = await getSetting('trial_enabled', '1');
+    const plans = await query(`SELECT * FROM subscription_plans ORDER BY display_order ASC`);
 
-    if (!phone || phone.length < 6) {
-      return res.status(400).json({ success: false, error: 'कृपया एक मान्य फ़ोन नंबर प्रदान करें।' });
-    }
-
-    let sub = await get(`SELECT * FROM user_subscriptions WHERE phone = ?`, [phone]);
-
-    if (!sub) {
-      // First time user: Start 7-Day Free Trial!
-      const now = new Date();
-      const trialExpires = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // +7 days
-
-      await run(
-        `INSERT INTO user_subscriptions (phone, trial_started_at, trial_expires_at, status, plan_name, total_cards_created)
-         VALUES (?, ?, ?, 'trial', 'free_trial', 0)`,
-        [phone, now.toISOString(), trialExpires.toISOString()]
-      );
-
-      sub = await get(`SELECT * FROM user_subscriptions WHERE phone = ?`, [phone]);
-      console.log(`✓ New 7-day trial started for phone: ${phone}`);
-    }
-
-    const result = evaluateSubscription(sub);
-    res.json({ success: true, subscription: result });
-  } catch (err) {
-    console.error('Check subscription error:', err);
-    res.status(500).json({ success: false, error: 'सब्सक्रिप्शन स्थिति जांचने में त्रुटि हुई।' });
-  }
-});
-
-// Upgrade / Subscribe to a plan
-app.post('/api/subscriptions/subscribe', async (req, res) => {
-  try {
-    const { phone: rawPhone, planName, durationMonths = 1 } = req.body;
-    const phone = normalizePhone(rawPhone);
-
-    if (!phone) {
-      return res.status(400).json({ success: false, error: 'फ़ोन नंबर आवश्यक है।' });
-    }
-
-    let sub = await get(`SELECT * FROM user_subscriptions WHERE phone = ?`, [phone]);
-    const now = new Date();
-    let subExpires = null;
-
-    if (planName === 'monthly') {
-      subExpires = new Date(now.getTime() + durationMonths * 30 * 24 * 60 * 60 * 1000);
-    } else if (planName === 'yearly') {
-      subExpires = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
-    } else if (planName === 'lifetime') {
-      subExpires = new Date(now.getTime() + 100 * 365 * 24 * 60 * 60 * 1000); // 100 years
-    } else {
-      subExpires = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-    }
-
-    if (!sub) {
-      const trialExpires = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-      await run(
-        `INSERT INTO user_subscriptions (phone, trial_started_at, trial_expires_at, status, plan_name, subscription_expires_at, total_cards_created)
-         VALUES (?, ?, ?, 'active', ?, ?, 0)`,
-        [phone, now.toISOString(), trialExpires.toISOString(), planName, subExpires.toISOString()]
-      );
-    } else {
-      await run(
-        `UPDATE user_subscriptions
-         SET status = 'active', plan_name = ?, subscription_expires_at = ?, updated_at = ?
-         WHERE phone = ?`,
-        [planName, subExpires.toISOString(), now.toISOString(), phone]
-      );
-    }
-
-    const updated = await get(`SELECT * FROM user_subscriptions WHERE phone = ?`, [phone]);
     res.json({
       success: true,
-      message: 'प्रीमियम सब्सक्रिप्शन सफलतापूर्वक सक्रिय हो गया!',
-      subscription: evaluateSubscription(updated)
+      trialDays: parseInt(trialDays, 10) || 7,
+      trialEnabled: trialEnabled === '1',
+      plans: plans.map(p => ({
+        ...p,
+        features: p.features_json ? JSON.parse(p.features_json) : []
+      }))
     });
   } catch (err) {
-    console.error('Subscription purchase error:', err);
-    res.status(500).json({ success: false, error: 'सब्सक्रिप्शन सक्रिय करने में त्रुटि हुई।' });
+    console.error('Admin settings error:', err);
+    res.status(500).json({ success: false, error: 'सेटिंग्स प्राप्त करने में त्रुटि।' });
   }
 });
 
-// Admin: List all user subscriptions
-app.get('/api/admin/subscriptions', authenticateAdmin, async (req, res) => {
+// Update Default Free Trial Days
+app.put('/api/admin/settings/trial', authenticateAdmin, async (req, res) => {
   try {
-    const rows = await query(`SELECT * FROM user_subscriptions ORDER BY created_at DESC`);
-    const evaluated = rows.map(evaluateSubscription);
-    res.json({ success: true, subscriptions: evaluated });
-  } catch (err) {
-    console.error('Admin subscriptions error:', err);
-    res.status(500).json({ success: false, error: 'सब्सक्रिप्शन सूची प्राप्त करने में त्रुटि।' });
-  }
-});
+    const { trialDays, trialEnabled } = req.body;
+    const days = Math.max(0, parseInt(trialDays, 10) || 7);
 
-// Admin: Update user subscription (Extend trial, activate premium, block)
-app.post('/api/admin/subscriptions/update', authenticateAdmin, async (req, res) => {
-  try {
-    const { phone: rawPhone, action, planName, extendDays = 7 } = req.body;
-    const phone = normalizePhone(rawPhone);
-
-    if (!phone) {
-      return res.status(400).json({ success: false, error: 'फ़ोन नंबर आवश्यक है।' });
+    await setSetting('default_trial_days', String(days), 'नए उपयोगकर्ताओं के लिए निःशुल्क ट्रायल के दिन');
+    if (trialEnabled !== undefined) {
+      await setSetting('trial_enabled', trialEnabled ? '1' : '0');
     }
 
-    const sub = await get(`SELECT * FROM user_subscriptions WHERE phone = ?`, [phone]);
-    if (!sub) {
+    console.log(`✓ Admin updated default trial days to: ${days} days`);
+    res.json({
+      success: true,
+      message: `निःशुल्क ट्रायल अवधि सफलतापूर्वक ${days} दिन सेट कर दी गई है!`,
+      trialDays: days
+    });
+  } catch (err) {
+    console.error('Update trial days error:', err);
+    res.status(500).json({ success: false, error: 'ट्रायल सेटिंग्स सहेजने में त्रुटि।' });
+  }
+});
+
+// Update or Create Subscription Plans
+app.put('/api/admin/plans', authenticateAdmin, async (req, res) => {
+  try {
+    const { plans } = req.body;
+    if (!Array.isArray(plans)) {
+      return res.status(400).json({ success: false, error: 'अमान्य प्लान्स डेटा।' });
+    }
+
+    for (const p of plans) {
+      if (!p.plan_key) continue;
+
+      const featuresJson = typeof p.features === 'string'
+        ? p.features
+        : JSON.stringify(Array.isArray(p.features) ? p.features : []);
+
+      const existing = await get(`SELECT id FROM subscription_plans WHERE plan_key = ?`, [p.plan_key]);
+      if (existing) {
+        await run(
+          `UPDATE subscription_plans
+           SET name_hi = ?, name_en = ?, price = ?, duration_days = ?, period_label = ?, badge_text = ?, features_json = ?, is_active = ?, display_order = ?
+           WHERE plan_key = ?`,
+          [
+            p.name_hi,
+            p.name_en,
+            Number(p.price) || 0,
+            Number(p.duration_days) || 30,
+            p.period_label || '',
+            p.badge_text || '',
+            featuresJson,
+            p.is_active ? 1 : 0,
+            Number(p.display_order) || 1,
+            p.plan_key
+          ]
+        );
+      } else {
+        await run(
+          `INSERT INTO subscription_plans (plan_key, name_hi, name_en, price, duration_days, period_label, badge_text, features_json, is_active, display_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            p.plan_key,
+            p.name_hi,
+            p.name_en,
+            Number(p.price) || 0,
+            Number(p.duration_days) || 30,
+            p.period_label || '',
+            p.badge_text || '',
+            featuresJson,
+            p.is_active ? 1 : 0,
+            Number(p.display_order) || 1
+          ]
+        );
+      }
+    }
+
+    const updatedPlans = await query(`SELECT * FROM subscription_plans ORDER BY display_order ASC`);
+    res.json({
+      success: true,
+      message: 'सब्सक्रिप्शन प्लान्स सफलतापूर्वक अपडेट कर दिए गए हैं!',
+      plans: updatedPlans.map(p => ({
+        ...p,
+        features: p.features_json ? JSON.parse(p.features_json) : []
+      }))
+    });
+  } catch (err) {
+    console.error('Update plans error:', err);
+    res.status(500).json({ success: false, error: 'प्लान्स सहेजने में त्रुटि।' });
+  }
+});
+
+// Admin: List all registered users & trial status
+app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
+  try {
+    const rows = await query(`SELECT * FROM users ORDER BY created_at DESC`);
+    const evaluated = rows.map(evaluateUserStatus);
+    res.json({ success: true, users: evaluated });
+  } catch (err) {
+    console.error('Admin users error:', err);
+    res.status(500).json({ success: false, error: 'उपयोगकर्ता सूची प्राप्त करने में त्रुटि।' });
+  }
+});
+
+// Admin: Update user status (extend trial, activate premium, block)
+app.post('/api/admin/users/update', authenticateAdmin, async (req, res) => {
+  try {
+    const { userId, phone: rawPhone, action, planName, extendDays = 7 } = req.body;
+    const phone = normalizePhone(rawPhone);
+
+    let user = null;
+    if (userId) {
+      user = await get(`SELECT * FROM users WHERE id = ?`, [userId]);
+    } else if (phone) {
+      user = await get(`SELECT * FROM users WHERE phone = ?`, [phone]);
+    }
+
+    if (!user) {
       return res.status(404).json({ success: false, error: 'उपयोगकर्ता नहीं मिला।' });
     }
 
     const now = new Date();
     if (action === 'extend_trial') {
-      const baseDate = new Date(sub.trial_expires_at) > now ? new Date(sub.trial_expires_at) : now;
+      const baseDate = new Date(user.trial_expires_at) > now ? new Date(user.trial_expires_at) : now;
       const newExpiry = new Date(baseDate.getTime() + extendDays * 24 * 60 * 60 * 1000);
       await run(
-        `UPDATE user_subscriptions SET trial_expires_at = ?, status = 'trial', updated_at = ? WHERE phone = ?`,
-        [newExpiry.toISOString(), now.toISOString(), phone]
+        `UPDATE users SET trial_expires_at = ?, status = 'trial', updated_at = ? WHERE id = ?`,
+        [newExpiry.toISOString(), now.toISOString(), user.id]
       );
     } else if (action === 'activate_premium') {
-      const plan = planName || 'yearly';
-      const days = plan === 'lifetime' ? 36500 : (plan === 'yearly' ? 365 : 30);
+      const plan = planName || 'वार्षिक (Admin Granted)';
+      const days = plan.includes('लाइफटाइम') ? 36500 : 365;
       const subExpires = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
       await run(
-        `UPDATE user_subscriptions SET status = 'active', plan_name = ?, subscription_expires_at = ?, updated_at = ? WHERE phone = ?`,
-        [plan, subExpires.toISOString(), now.toISOString(), phone]
+        `UPDATE users SET status = 'active', plan_name = ?, subscription_expires_at = ?, updated_at = ? WHERE id = ?`,
+        [plan, subExpires.toISOString(), now.toISOString(), user.id]
       );
     } else if (action === 'block') {
-      await run(`UPDATE user_subscriptions SET status = 'blocked', updated_at = ? WHERE phone = ?`, [now.toISOString(), phone]);
+      await run(`UPDATE users SET status = 'blocked', updated_at = ? WHERE id = ?`, [now.toISOString(), user.id]);
     } else if (action === 'unblock') {
-      await run(`UPDATE user_subscriptions SET status = 'trial', updated_at = ? WHERE phone = ?`, [now.toISOString(), phone]);
+      await run(`UPDATE users SET status = 'trial', updated_at = ? WHERE id = ?`, [now.toISOString(), user.id]);
     }
 
-    const updated = await get(`SELECT * FROM user_subscriptions WHERE phone = ?`, [phone]);
+    const updated = await get(`SELECT * FROM users WHERE id = ?`, [user.id]);
     res.json({
       success: true,
       message: 'उपयोगकर्ता स्थिति सफलतापूर्वक अपडेट की गई।',
-      subscription: evaluateSubscription(updated)
+      user: evaluateUserStatus(updated)
     });
   } catch (err) {
-    console.error('Admin update subscription error:', err);
+    console.error('Admin update user error:', err);
     res.status(500).json({ success: false, error: 'अपडेट करने में त्रुटि।' });
   }
 });
 
-// ==========================================
-// 3. CARD GENERATION & LOGS ROUTES
-// ==========================================
-
-// Create Card Log
-app.post('/api/cards', async (req, res) => {
+// Admin Subscriptions Aliases
+app.get('/api/admin/subscriptions', authenticateAdmin, async (req, res) => {
   try {
-    const data = req.body;
-    const phone = normalizePhone(data.mobile || data.whatsappNumber);
-
-    // Verify trial/subscription limit before recording
-    if (phone) {
-      let sub = await get(`SELECT * FROM user_subscriptions WHERE phone = ?`, [phone]);
-      if (!sub) {
-        const now = new Date();
-        const trialExpires = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-        await run(
-          `INSERT INTO user_subscriptions (phone, trial_started_at, trial_expires_at, status, plan_name, total_cards_created)
-           VALUES (?, ?, ?, 'trial', 'free_trial', 0)`,
-          [phone, now.toISOString(), trialExpires.toISOString()]
-        );
-        sub = await get(`SELECT * FROM user_subscriptions WHERE phone = ?`, [phone]);
-      }
-
-      const evalSub = evaluateSubscription(sub);
-      if (!evalSub.canGenerateCard) {
-        return res.status(403).json({
-          success: false,
-          error: 'आपका 7-दिन का फ्री ट्रायल समाप्त हो चुका है। कृपया पहचान पत्र बनाने हेतु सब्सक्रिप्शन लें।',
-          trialExpired: true,
-          subscription: evalSub
-        });
-      }
-
-      // Increment card count
-      await run(
-        `UPDATE user_subscriptions SET total_cards_created = total_cards_created + 1, updated_at = ? WHERE phone = ?`,
-        [new Date().toISOString(), phone]
-      );
-    }
-
-    const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-
-    // Insert card log
-    const result = await run(
-      `INSERT INTO card_logs (
-        membership_no, name, father_name, mobile, state, district,
-        constituency, conscode, designation, dob, caste, booth,
-        whatsapp_number, photo_url, ip_address
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        data.membershipNo || '',
-        data.name || '',
-        data.father || '',
-        data.mobile || '',
-        data.state || '',
-        data.district || '',
-        data.constituency || '',
-        data.conscode || '',
-        data.designation || '',
-        data.dob || '',
-        data.caste || '',
-        data.booth || '',
-        data.whatsappNumber || '',
-        data.photoThumb || '',
-        ipAddress
-      ]
-    );
-
-    res.json({
-      success: true,
-      message: 'पहचान पत्र रिकॉर्ड सुरक्षित कर लिया गया।',
-      id: result.lastInsertRowid || result.id
-    });
+    const rows = await query(`SELECT * FROM users ORDER BY created_at DESC`);
+    const evaluated = rows.map(evaluateUserStatus);
+    res.json({ success: true, subscriptions: evaluated, users: evaluated });
   } catch (err) {
-    console.error('Card log creation error:', err);
-    res.status(500).json({ success: false, error: 'कार्ड रिकॉर्ड सहेजने में त्रुटि हुई।' });
+    console.error('Admin subs alias error:', err);
+    res.status(500).json({ success: false, error: 'डेटा लोड करने में त्रुटि।' });
   }
 });
 
-// Admin: Get all card logs (with search, filter, pagination)
-app.get('/api/cards', authenticateAdmin, async (req, res) => {
-  try {
-    const { q, state, district, limit = 100, offset = 0 } = req.query;
-
-    let sql = `SELECT * FROM card_logs WHERE 1=1`;
-    const params = [];
-
-    if (q) {
-      sql += ` AND (name LIKE ? OR mobile LIKE ? OR father_name LIKE ? OR constituency LIKE ? OR caste LIKE ?)`;
-      const searchParam = `%${q.trim()}%`;
-      params.push(searchParam, searchParam, searchParam, searchParam, searchParam);
-    }
-
-    if (state && state !== 'all') {
-      sql += ` AND state = ?`;
-      params.push(state);
-    }
-
-    if (district && district !== 'all') {
-      sql += ` AND district = ?`;
-      params.push(district);
-    }
-
-    sql += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
-    params.push(Number(limit), Number(offset));
-
-    const logs = await query(sql, params);
-    const totalRow = await get(`SELECT COUNT(*) as count FROM card_logs`);
-
-    res.json({
-      success: true,
-      total: Number(totalRow.count || totalRow.COUNT || 0),
-      logs
-    });
-  } catch (err) {
-    console.error('Fetch card logs error:', err);
-    res.status(500).json({ success: false, error: 'कार्ड लॉग्स लोड करने में त्रुटि।' });
-  }
+app.post('/api/admin/subscriptions/update', authenticateAdmin, async (req, res, next) => {
+  // Delegate to /api/admin/users/update logic
+  req.url = '/api/admin/users/update';
+  app._router.handle(req, res, next);
 });
 
-// Admin: Delete card log
-app.delete('/api/cards/:id', authenticateAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-    await run(`DELETE FROM card_logs WHERE id = ?`, [id]);
-    res.json({ success: true, message: 'कार्ड लॉग सफलतापूर्वक हटा दिया गया।' });
-  } catch (err) {
-    console.error('Delete card log error:', err);
-    res.status(500).json({ success: false, error: 'कार्ड लॉग हटाने में त्रुटि।' });
-  }
-});
 
 // ==========================================
-// 4. FIELD CONFIGURATION ROUTES
+// 5. FIELD CONFIGURATION ROUTES
 // ==========================================
 
 // Public: Get active form field configuration
@@ -514,7 +791,7 @@ app.post('/api/config/fields/reset', authenticateAdmin, async (req, res) => {
 });
 
 // ==========================================
-// 5. ADMIN ANALYTICS & STATS
+// 6. ADMIN ANALYTICS & STATS
 // ==========================================
 
 app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
@@ -523,12 +800,12 @@ app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
     const todayCardsRow = await get(
       `SELECT COUNT(*) as count FROM card_logs WHERE date(created_at) = date('now')`
     );
-    const totalUsersRow = await get(`SELECT COUNT(*) as count FROM user_subscriptions`);
+    const totalUsersRow = await get(`SELECT COUNT(*) as count FROM users`);
     const activeSubscribersRow = await get(
-      `SELECT COUNT(*) as count FROM user_subscriptions WHERE status = 'active'`
+      `SELECT COUNT(*) as count FROM users WHERE status = 'active'`
     );
     const activeTrialsRow = await get(
-      `SELECT COUNT(*) as count FROM user_subscriptions WHERE status = 'trial' AND trial_expires_at > datetime('now')`
+      `SELECT COUNT(*) as count FROM users WHERE status = 'trial' AND trial_expires_at > datetime('now')`
     );
 
     res.json({

@@ -26,6 +26,30 @@
         <button type="button" id="btnFillSampleQuick" class="btn-pill btn-gold">
           ⚡ नमूना भरें (Sample Data)
         </button>
+
+        <!-- Guest Actions -->
+        <div id="headerGuestActions" class="header-user-group">
+          <button type="button" id="btnOpenLogin" class="btn-pill btn-outline-white">
+            🔑 लॉगिन
+          </button>
+          <button type="button" id="btnOpenRegister" class="btn-pill btn-primary-highlight">
+            ✨ रजिस्टर (Free Trial)
+          </button>
+        </div>
+
+        <!-- Logged In User Profile -->
+        <div id="headerUserProfile" class="header-user-profile" style="display: none;">
+          <div class="user-badge-wrap">
+            <span class="user-avatar-circle" id="headerUserAvatar">U</span>
+            <div class="user-meta-info">
+              <span class="user-name-text" id="headerUserName">सदस्य</span>
+              <span class="user-status-pill" id="headerUserStatus">⏳ 7 दिन ट्रायल</span>
+            </div>
+          </div>
+          <button type="button" id="btnLogoutUser" class="btn-user-logout" title="लॉगआउट करें">
+            🚪 लॉगआउट
+          </button>
+        </div>
       </div>
     </div>
   </header>
@@ -321,69 +345,104 @@
     </div>
   </div>
 
-  <!-- 7-Day Trial Expired / Subscription Plans Modal -->
+  <!-- End-User Auth Modal (Register & Login) -->
+  <div class="modal-overlay" id="userAuthModal">
+    <div class="modal-content auth-modal-card">
+      <div class="auth-modal-header">
+        <div class="auth-brand-logo">
+          <img src="/assets/logo_img.png" alt="INLD" class="auth-logo-img">
+        </div>
+        <h3 id="authModalHeading">इंडियन नेशनल लोकदल सदस्यता पोर्टल</h3>
+        <p id="authModalSubheading">नया खाता बनाएं और तुरंत अपना निःशुल्क ट्रायल शुरू करें</p>
+        <button type="button" class="modal-close-btn" id="authModalClose">&times;</button>
+      </div>
+
+      <!-- Auth Tabs Nav -->
+      <div class="auth-tabs-nav">
+        <button type="button" class="auth-tab-btn active" id="tabBtnRegister">
+          ✨ नया पंजीकरण (Free Trial)
+        </button>
+        <button type="button" class="auth-tab-btn" id="tabBtnLogin">
+          🔑 लॉगिन (Sign In)
+        </button>
+      </div>
+
+      <div class="auth-modal-body">
+        <!-- Registration Panel -->
+        <div class="auth-tab-content active" id="panelRegister">
+          <div class="trial-banner-highlight">
+            🎉 <strong>मुफ़्त ट्रायल:</strong> रजिस्ट्रेशन करते ही <span id="regTrialDaysLabel">7 दिन</span> का फ्री ट्रायल तुरंत शुरू होगा!
+          </div>
+          <form id="formUserRegister" autocomplete="off">
+            <div class="auth-field-group">
+              <label for="regName">पूरा नाम (Full Name) <span class="req-star">*</span></label>
+              <input type="text" id="regName" placeholder="अपना पूरा नाम दर्ज करें" required>
+            </div>
+            <div class="auth-field-group">
+              <label for="regPhone">मोबाइल नंबर (Mobile No) <span class="req-star">*</span></label>
+              <div class="input-phone-group">
+                <span class="phone-prefix">+91</span>
+                <input type="tel" id="regPhone" placeholder="10 अंकों का मोबाइल नंबर" maxlength="10" required>
+              </div>
+            </div>
+            <div class="auth-field-group">
+              <label for="regPassword">पासवर्ड बनाएं (Create Password) <span class="req-star">*</span></label>
+              <input type="password" id="regPassword" placeholder="कम से कम 4 अक्षरों का पासवर्ड" minlength="4" required>
+            </div>
+            <div class="auth-error-msg" id="regErrorMsg" style="display:none;"></div>
+            <button type="submit" class="btn-auth-submit" id="btnSubmitRegister">
+              🚀 खाता बनाएं और फ्री ट्रायल शुरू करें
+            </button>
+          </form>
+          <div class="auth-switch-prompt">
+            पहले से पंजीकृत हैं? <a href="#" id="linkSwitchToLogin">यहाँ लॉगिन करें</a>
+          </div>
+        </div>
+
+        <!-- Login Panel -->
+        <div class="auth-tab-content" id="panelLogin" style="display: none;">
+          <form id="formUserLogin" autocomplete="off">
+            <div class="auth-field-group">
+              <label for="loginPhone">मोबाइल नंबर (Registered Mobile No) <span class="req-star">*</span></label>
+              <div class="input-phone-group">
+                <span class="phone-prefix">+91</span>
+                <input type="tel" id="loginPhone" placeholder="10 अंकों का मोबाइल नंबर" maxlength="10" required>
+              </div>
+            </div>
+            <div class="auth-field-group">
+              <label for="loginPassword">पासवर्ड (Password) <span class="req-star">*</span></label>
+              <input type="password" id="loginPassword" placeholder="अपना पासवर्ड दर्ज करें" required>
+            </div>
+            <div class="auth-error-msg" id="loginErrorMsg" style="display:none;"></div>
+            <button type="submit" class="btn-auth-submit" id="btnSubmitLogin">
+              🔑 लॉगिन करें
+            </button>
+          </form>
+          <div class="auth-switch-prompt">
+            नया खाता बनाना चाहते हैं? <a href="#" id="linkSwitchToRegister">यहाँ रजिस्टर करें (Free Trial)</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Subscription Plans Modal (Shown when trial is over) -->
   <div class="modal-overlay" id="subscriptionModal">
     <div class="modal-content sub-modal-card">
       <div class="sub-modal-header">
         <div class="sub-icon-crown">👑</div>
-        <h3>7-दिन का फ्री ट्रायल समाप्त हो गया है</h3>
-        <p>पहचान पत्र निर्माण जारी रखने के लिए कृपया अपनी सदस्यता चुनें</p>
+        <h3 id="subModalHeading">निःशुल्क ट्रायल समाप्त हो गया है</h3>
+        <p id="subModalSubheading">पहचान पत्र निर्माण जारी रखने के लिए कृपया अपनी सदस्यता चुनें</p>
         <button type="button" class="modal-close-btn" id="subModalClose">&times;</button>
       </div>
       <div class="sub-modal-body">
         
-        <div class="plans-grid">
-          <!-- Plan 1: Monthly -->
-          <div class="plan-card" data-plan="monthly">
-            <span class="plan-tag">मासिक</span>
-            <h4>₹99</h4>
-            <span class="plan-period">प्रति महीना (1 Month)</span>
-            <ul class="plan-features">
-              <li>✓ असीमित HD कार्ड जनरेशन</li>
-              <li>✓ Front & Back दोनों साइड्स</li>
-              <li>✓ 300 DPI प्रिंट-रेडी PDF</li>
-            </ul>
-            <button type="button" class="btn-choose-plan" data-plan="monthly">
-              प्लान चुनें
-            </button>
-          </div>
-
-          <!-- Plan 2: Yearly (Popular) -->
-          <div class="plan-card popular-plan" data-plan="yearly">
-            <span class="plan-popular-badge">सर्वाधिक लोकप्रिय (Best Value)</span>
-            <span class="plan-tag tag-gold">वार्षिक</span>
-            <h4>₹499</h4>
-            <span class="plan-period">पूरे 1 वर्ष हेतु (1 Year)</span>
-            <ul class="plan-features">
-              <li>✓ असीमित HD कार्ड निर्माण</li>
-              <li>✓ फ्रंट व बैक दोनों साइड्स</li>
-              <li>✓ 2-पेज सम्पूर्ण PDF एक्सपोर्ट</li>
-              <li>✓ WhatsApp डायरेक्ट सेंड</li>
-              <li>✓ 60% की भारी बचत</li>
-            </ul>
-            <button type="button" class="btn-choose-plan btn-plan-popular" data-plan="yearly">
-              वार्षिक प्लान लें (₹499)
-            </button>
-          </div>
-
-          <!-- Plan 3: Lifetime -->
-          <div class="plan-card" data-plan="lifetime">
-            <span class="plan-tag">लाइफटाइम</span>
-            <h4>₹999</h4>
-            <span class="plan-period">एक बार भुगतान (Lifetime)</span>
-            <ul class="plan-features">
-              <li>✓ हमेशा के लिए असीमित कार्ड्स</li>
-              <li>✓ वीआईपी प्राथमिकता सपोर्ट</li>
-              <li>✓ भविष्य के सभी अपडेट्स</li>
-            </ul>
-            <button type="button" class="btn-choose-plan" data-plan="lifetime">
-              लाइफटाइम लें
-            </button>
-          </div>
+        <div class="plans-grid" id="plansGridContainer">
+          <!-- Dynamic Plan Cards populated by JS from /api/subscription-plans -->
         </div>
 
         <div class="sub-guarantee-note">
-          🔒 सुरक्षित एवं तुरंत सक्रियण • सहायता हेतु INLD मुख्यालय से संपर्क करें।
+          🔒 सुरक्षित एवं तुरंत सक्रियण • सदस्यता लेने के बाद तुरंत असीमित कार्ड बनाएं।
         </div>
 
       </div>

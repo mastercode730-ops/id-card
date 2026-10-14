@@ -6,7 +6,10 @@ const state = {
   admin: null,
   cardLogs: [],
   fields: [],
-  subscriptions: []
+  subscriptions: [],
+  plans: [],
+  trialDays: 7,
+  trialEnabled: true
 };
 
 // DOM Elements
@@ -53,7 +56,12 @@ const el = {
   btnSaveFieldConfigs: document.getElementById('btnSaveFieldConfigs'),
   btnResetDefaultFields: document.getElementById('btnResetDefaultFields'),
 
-  // Subscriptions
+  // Subscriptions & Plans & Settings
+  settingTrialDays: document.getElementById('settingTrialDays'),
+  settingTrialEnabled: document.getElementById('settingTrialEnabled'),
+  btnSaveTrialSetting: document.getElementById('btnSaveTrialSetting'),
+  plansAdminContainer: document.getElementById('plansAdminContainer'),
+  btnSavePlans: document.getElementById('btnSavePlans'),
   subsTableBody: document.getElementById('subsTableBody'),
   subSearchInput: document.getElementById('subSearchInput'),
   subStatusFilter: document.getElementById('subStatusFilter'),
@@ -166,7 +174,8 @@ async function initDashboard() {
     loadStats(),
     loadCardLogs(),
     loadFieldConfigs(),
-    loadSubscriptions()
+    loadSubscriptions(),
+    loadAdminSettings()
   ]);
 }
 
@@ -182,7 +191,10 @@ el.tabLinks.forEach((btn) => {
     if (targetPanel) targetPanel.classList.add('active');
 
     if (targetId === 'tabCardLogs') loadCardLogs();
-    if (targetId === 'tabSubscriptions') loadSubscriptions();
+    if (targetId === 'tabSubscriptions') {
+      loadSubscriptions();
+      loadAdminSettings();
+    }
     if (targetId === 'tabOverview') loadStats();
     if (targetId === 'tabFieldConfig') loadFieldConfigs();
   });
@@ -570,13 +582,168 @@ el.btnResetDefaultFields.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 4. SUBSCRIPTIONS & 7-DAY TRIAL
+// 4. SUBSCRIPTIONS, TRIAL DAYS & PLANS MANAGEMENT
 // ==========================================
+
+// 4A. Load Trial Settings & Plans
+async function loadAdminSettings() {
+  try {
+    const data = await authFetch(`${API_BASE}/admin/settings`);
+    if (data.success) {
+      state.trialDays = data.trialDays;
+      state.trialEnabled = data.trialEnabled;
+      state.plans = data.plans || [];
+
+      if (el.settingTrialDays) el.settingTrialDays.value = data.trialDays;
+      if (el.settingTrialEnabled) el.settingTrialEnabled.checked = data.trialEnabled;
+
+      renderAdminPlans(state.plans);
+    }
+  } catch (err) {
+    console.error('Load admin settings error:', err);
+  }
+}
+
+// 4B. Render Editable Plan Cards
+function renderAdminPlans(plans) {
+  if (!el.plansAdminContainer) return;
+  if (!plans || plans.length === 0) {
+    el.plansAdminContainer.innerHTML = `<p style="color:var(--text-muted); padding:20px;">कोई प्लान उपलब्ध नहीं है।</p>`;
+    return;
+  }
+
+  el.plansAdminContainer.innerHTML = plans.map(p => {
+    const isPopular = p.plan_key === 'yearly' || (p.badge_text && p.badge_text.includes('लोकप्रिय'));
+    return `
+      <div class="plan-admin-card ${isPopular ? 'featured-card' : ''}" data-key="${p.plan_key}">
+        <div class="plan-admin-header">
+          <span class="plan-admin-badge">${escapeHtml(p.plan_key)}</span>
+          <span style="font-size:0.85rem; font-weight:700; color:var(--primary);">${escapeHtml(p.name_hi || '')}</span>
+        </div>
+
+        <div class="plan-edit-row">
+          <label>प्लान नाम (Hindi Name)</label>
+          <input type="text" class="plan-input-name-hi" value="${escapeHtml(p.name_hi || '')}">
+        </div>
+
+        <div class="plan-edit-row">
+          <label>अंग्रेजी नाम (English Name)</label>
+          <input type="text" class="plan-input-name-en" value="${escapeHtml(p.name_en || '')}">
+        </div>
+
+        <div class="plan-price-duration-flex">
+          <div class="plan-edit-row">
+            <label>मूल्य (Price in ₹)</label>
+            <input type="number" class="plan-input-price" value="${Number(p.price || 0)}" min="0">
+          </div>
+          <div class="plan-edit-row">
+            <label>वैधता (Validity Days)</label>
+            <input type="number" class="plan-input-days" value="${Number(p.duration_days || 30)}" min="1">
+          </div>
+        </div>
+
+        <div class="plan-edit-row">
+          <label>अवधि लेबल (e.g. प्रति महीना / पूरे 1 वर्ष हेतु)</label>
+          <input type="text" class="plan-input-period" value="${escapeHtml(p.period_label || '')}">
+        </div>
+
+        <div class="plan-edit-row">
+          <label>बैज टेक्स्ट (Badge, e.g. Best Value)</label>
+          <input type="text" class="plan-input-badge" value="${escapeHtml(p.badge_text || '')}">
+        </div>
+
+        <div class="plan-toggle-row">
+          <span>सक्रिय रखें (Active)</span>
+          <label class="switch">
+            <input type="checkbox" class="plan-input-active" ${p.is_active ? 'checked' : ''}>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// 4C. Save Trial Days Settings
+el.btnSaveTrialSetting?.addEventListener('click', async () => {
+  const trialDays = parseInt(el.settingTrialDays.value, 10) || 7;
+  const trialEnabled = el.settingTrialEnabled.checked;
+
+  try {
+    el.btnSaveTrialSetting.disabled = true;
+    el.btnSaveTrialSetting.textContent = 'सहेजा जा रहा है...';
+
+    const res = await authFetch(`${API_BASE}/admin/settings/trial`, {
+      method: 'PUT',
+      body: JSON.stringify({ trialDays, trialEnabled })
+    });
+
+    if (res.success) {
+      showToast(res.message || 'ट्रायल सेटिंग्स सुरक्षित कर ली गईं!');
+    } else {
+      showToast(res.error || 'सहेजने में त्रुटि', false);
+    }
+  } catch (err) {
+    showToast('ट्रायल सेटिंग्स अपडेट विफल', false);
+  } finally {
+    el.btnSaveTrialSetting.disabled = false;
+    el.btnSaveTrialSetting.textContent = '💾 ट्रायल सेटिंग्स सहेजें';
+  }
+});
+
+// 4D. Save Subscription Plans
+el.btnSavePlans?.addEventListener('click', async () => {
+  const cards = el.plansAdminContainer.querySelectorAll('.plan-admin-card');
+  const updatedPlans = [];
+
+  cards.forEach(card => {
+    const plan_key = card.dataset.key;
+    const existing = state.plans.find(p => p.plan_key === plan_key) || {};
+    
+    updatedPlans.push({
+      plan_key,
+      name_hi: card.querySelector('.plan-input-name-hi')?.value.trim() || existing.name_hi,
+      name_en: card.querySelector('.plan-input-name-en')?.value.trim() || existing.name_en,
+      price: Number(card.querySelector('.plan-input-price')?.value) || 0,
+      duration_days: Number(card.querySelector('.plan-input-days')?.value) || 30,
+      period_label: card.querySelector('.plan-input-period')?.value.trim() || '',
+      badge_text: card.querySelector('.plan-input-badge')?.value.trim() || '',
+      features: existing.features || [],
+      is_active: card.querySelector('.plan-input-active')?.checked ? 1 : 0,
+      display_order: existing.display_order || 1
+    });
+  });
+
+  try {
+    el.btnSavePlans.disabled = true;
+    el.btnSavePlans.textContent = 'सहेजा जा रहा है...';
+
+    const res = await authFetch(`${API_BASE}/admin/plans`, {
+      method: 'PUT',
+      body: JSON.stringify({ plans: updatedPlans })
+    });
+
+    if (res.success) {
+      state.plans = res.plans || updatedPlans;
+      showToast(res.message || 'सभी प्लान्स सफलतापूर्वक सहेज लिए गए!');
+      renderAdminPlans(state.plans);
+    } else {
+      showToast(res.error || 'प्लान्स सहेजने में त्रुटि', false);
+    }
+  } catch (err) {
+    showToast('प्लान्स अपडेट विफल', false);
+  } finally {
+    el.btnSavePlans.disabled = false;
+    el.btnSavePlans.textContent = '💾 सभी प्लान्स सहेजें (Save All Plans)';
+  }
+});
+
+// 4E. Registered Users Table & Status
 async function loadSubscriptions() {
   try {
     const data = await authFetch(`${API_BASE}/admin/subscriptions`);
     if (data.success) {
-      state.subscriptions = data.subscriptions || [];
+      state.subscriptions = data.subscriptions || data.users || [];
       renderSubscriptionsTable(state.subscriptions);
     }
   } catch (err) {
@@ -590,7 +757,10 @@ function renderSubscriptionsTable(subs) {
 
   let filtered = subs;
   if (q) {
-    filtered = filtered.filter(s => s.phone.includes(q));
+    filtered = filtered.filter(s =>
+      (s.phone && s.phone.includes(q)) ||
+      (s.name && s.name.toLowerCase().includes(q))
+    );
   }
   if (activePill !== 'all') {
     filtered = filtered.filter(s => s.status === activePill);
@@ -600,7 +770,7 @@ function renderSubscriptionsTable(subs) {
     el.subsTableBody.innerHTML = `
       <tr>
         <td colspan="8" style="text-align: center; padding: 32px; color: var(--text-muted);">
-          कोई सब्सक्रिप्शन रिकॉर्ड नहीं मिला।
+          कोई उपयोगकर्ता / सब्सक्रिप्शन रिकॉर्ड नहीं मिला।
         </td>
       </tr>
     `;
@@ -624,13 +794,16 @@ function renderSubscriptionsTable(subs) {
 
     return `
       <tr>
-        <td><strong>📱 ${escapeHtml(s.phone)}</strong></td>
+        <td>
+          <strong>📱 ${escapeHtml(s.phone)}</strong>
+          ${s.name ? `<div style="font-size:0.8rem; color:var(--text-muted); font-weight:600;">${escapeHtml(s.name)}</div>` : ''}
+        </td>
         <td>${statusBadge}</td>
         <td><span style="font-weight: 700; text-transform: capitalize;">${escapeHtml(s.planName || 'Free Trial')}</span></td>
         <td>${trialStart}</td>
         <td>${trialExp}</td>
         <td>
-          <strong style="color: ${s.daysRemaining > 0 ? '#15803d' : '#dc2626'}; font-size: 0.95rem;">
+          <strong style="color: ${s.isSubscribed || s.daysRemaining > 0 ? '#15803d' : '#dc2626'}; font-size: 0.95rem;">
             ${s.isSubscribed ? 'असीमित' : `${s.daysRemaining} दिन`}
           </strong>
         </td>
@@ -686,10 +859,12 @@ el.subStatusFilter.querySelectorAll('.filter-pill').forEach(pill => {
     renderSubscriptionsTable(state.subscriptions);
   });
 });
-el.btnRefreshSubs.addEventListener('click', () => {
+el.btnRefreshSubs?.addEventListener('click', () => {
   loadSubscriptions();
-  showToast('सब्सक्रिप्शन सूची रीफ़्रेश हो गई!');
+  loadAdminSettings();
+  showToast('सब्सक्रिप्शन सूची एवं सेटिंग्स रीफ़्रेश हो गईं!');
 });
+
 
 // ==========================================
 // 5. SECURITY / CHANGE PASSWORD

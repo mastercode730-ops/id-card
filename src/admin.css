@@ -1105,3 +1105,204 @@ input:checked + .slider:before {
   transform: translateY(0);
   opacity: 1;
 }
+
+/* ============================================================
+   ADMIN SETTINGS & SUBSCRIPTION PLANS MANAGER
+   ============================================================ */
+.admin-settings-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.card-header-flex {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-light);
+  flex-wrap: wrap;
+}
+
+.card-header-flex h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--primary-dark);
+}
+
+.card-header-flex p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.trial-settings-form-row {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+
+.setting-input-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.setting-input-wrap label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.input-with-unit {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid var(--border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #ffffff;
+  transition: border-color 0.2s;
+  max-width: 200px;
+}
+
+.input-with-unit:focus-within {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+}
+
+.input-with-unit input {
+  border: none;
+  outline: none;
+  padding: 10px 14px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--primary-dark);
+  width: 90px;
+}
+
+.input-with-unit .unit-text {
+  background: #f1f5f9;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 10px 12px;
+  border-left: 1px solid var(--border-light);
+}
+
+.setting-switch-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.setting-switch-wrap .switch-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+/* Subscription Plans Admin Grid */
+.plans-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.plan-admin-card {
+  background: #ffffff;
+  border: 2px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.plan-admin-card:hover {
+  border-color: var(--gold);
+  box-shadow: var(--shadow-md);
+}
+
+.plan-admin-card.featured-card {
+  border-color: var(--gold);
+  background: linear-gradient(180deg, #fffdf2 0%, #ffffff 100%);
+}
+
+.plan-admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px dashed var(--border-light);
+  padding-bottom: 10px;
+}
+
+.plan-admin-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--primary-100);
+  color: var(--primary-dark);
+  padding: 3px 10px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.plan-edit-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.plan-edit-row label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.plan-edit-row input,
+.plan-edit-row textarea {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  background: #ffffff;
+  outline: none;
+}
+
+.plan-edit-row input:focus,
+.plan-edit-row textarea:focus {
+  border-color: var(--border-focus);
+}
+
+.plan-price-duration-flex {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.plan-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-light);
+}
+
+.plan-toggle-row span {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
