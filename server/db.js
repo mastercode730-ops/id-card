@@ -4,29 +4,37 @@ import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
 import { DatabaseSync } from 'node:sqlite';
 import pg from 'pg';
+import dotenv from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const isPostgres = Boolean(process.env.DATABASE_URL);
-let pgPool = null;
-let sqliteDb = null;
-
-// Ensure local data directory exists for SQLite
-const dataDir = path.join(__dirname, '..', 'data');
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+// Load .env.local first if present (Neon CLI envs), then .env
+const envLocalPath = path.join(__dirname, '..', '.env.local');
+const envPath = path.join(__dirname, '..', '.env');
+if (fs.existsSync(envLocalPath)) {
+  dotenv.config({ path: envLocalPath });
+}
+if (fs.existsSync(envPath)) {
+  dotenv.config({ path: envPath });
 }
 
-const sqliteFilePath = path.join(dataDir, 'database.sqlite');
+export const isPostgres = Boolean(process.env.DATABASE_URL);
+let pgPool = null;
+let sqliteDb = null;
 
 if (isPostgres) {
   pgPool = new pg.Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    ssl: { rejectUnauthorized: false }
   });
-  console.log('✓ Connected to PostgreSQL Database');
+  console.log('✓ Connected to PostgreSQL Database (Neon)');
 } else {
+  const dataDir = path.join(__dirname, '..', 'data');
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+  const sqliteFilePath = path.join(dataDir, 'database.sqlite');
   sqliteDb = new DatabaseSync(sqliteFilePath);
   console.log(`✓ Connected to local SQLite Database at: ${sqliteFilePath}`);
 }
@@ -60,13 +68,18 @@ export async function get(sql, params = []) {
 export async function run(sql, params = []) {
   if (isPostgres) {
     let paramIndex = 1;
-    const pgSql = sql.replace(/\?/g, () => `$${paramIndex++}`);
+    let pgSql = sql.replace(/\?/g, () => `$${paramIndex++}`);
+    if (/^\s*INSERT\s+INTO/i.test(pgSql) && !/RETURNING/i.test(pgSql)) {
+      pgSql += ' RETURNING *';
+    }
     const res = await pgPool.query(pgSql, params);
-    return { rowCount: res.rowCount };
+    const firstRow = res.rows && res.rows[0] ? res.rows[0] : null;
+    const lastId = firstRow ? (firstRow.id ?? null) : null;
+    return { lastInsertRowid: lastId, id: lastId, row: firstRow, rowCount: res.rowCount };
   } else {
     const stmt = sqliteDb.prepare(sql);
     const info = stmt.run(...params);
-    return { lastInsertRowid: info.lastInsertRowid, changes: info.changes };
+    return { lastInsertRowid: info.lastInsertRowid, id: info.lastInsertRowid, changes: info.changes };
   }
 }
 
@@ -105,34 +118,37 @@ export async function setSetting(key, value, description = '') {
  * Initialize Tables & Seeds
  */
 export async function initDb() {
+  const idCol = isPostgres ? 'SERIAL PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT';
+  const timeType = isPostgres ? 'TIMESTAMP' : 'DATETIME';
+
   // 1. Admin Users Table
   await exec(`
     CREATE TABLE IF NOT EXISTS admin_users (
-      id INTEGER PRIMARY KEY ${isPostgres ? 'GENERATED ALWAYS AS IDENTITY' : 'AUTOINCREMENT'},
+      id ${idCol},
       username TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       name TEXT DEFAULT 'Administrator',
       role TEXT DEFAULT 'admin',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at ${timeType} DEFAULT CURRENT_TIMESTAMP
     );
   `);
 
   // 2. Registered Users Table (Card Creators with Authentication & Trial)
   await exec(`
     CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY ${isPostgres ? 'GENERATED ALWAYS AS IDENTITY' : 'AUTOINCREMENT'},
+      id ${idCol},
       name TEXT NOT NULL,
       phone TEXT UNIQUE NOT NULL,
       email TEXT,
       password_hash TEXT NOT NULL,
-      trial_started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      trial_expires_at DATETIME NOT NULL,
+      trial_started_at ${timeType} DEFAULT CURRENT_TIMESTAMP,
+      trial_expires_at ${timeType} NOT NULL,
       status TEXT DEFAULT 'trial',
       plan_name TEXT DEFAULT 'free_trial',
-      subscription_expires_at DATETIME,
+      subscription_expires_at ${timeType},
       total_cards_created INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at ${timeType} DEFAULT CURRENT_TIMESTAMP,
+      updated_at ${timeType} DEFAULT CURRENT_TIMESTAMP
     );
   `);
 
@@ -148,7 +164,7 @@ export async function initDb() {
   // 4. Subscription Plans Table (Dynamic Pricing & Duration)
   await exec(`
     CREATE TABLE IF NOT EXISTS subscription_plans (
-      id INTEGER PRIMARY KEY ${isPostgres ? 'GENERATED ALWAYS AS IDENTITY' : 'AUTOINCREMENT'},
+      id ${idCol},
       plan_key TEXT UNIQUE NOT NULL,
       name_hi TEXT NOT NULL,
       name_en TEXT NOT NULL,
@@ -165,7 +181,7 @@ export async function initDb() {
   // 5. Card Creation Logs Table
   await exec(`
     CREATE TABLE IF NOT EXISTS card_logs (
-      id INTEGER PRIMARY KEY ${isPostgres ? 'GENERATED ALWAYS AS IDENTITY' : 'AUTOINCREMENT'},
+      id ${idCol},
       user_id INTEGER,
       membership_no TEXT NOT NULL,
       name TEXT NOT NULL,
@@ -182,7 +198,7 @@ export async function initDb() {
       whatsapp_number TEXT,
       photo_url TEXT,
       ip_address TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at ${timeType} DEFAULT CURRENT_TIMESTAMP
     );
   `);
 
@@ -196,7 +212,7 @@ export async function initDb() {
   // 6. Dynamic Field Configuration Table
   await exec(`
     CREATE TABLE IF NOT EXISTS field_configs (
-      id INTEGER PRIMARY KEY ${isPostgres ? 'GENERATED ALWAYS AS IDENTITY' : 'AUTOINCREMENT'},
+      id ${idCol},
       field_key TEXT UNIQUE NOT NULL,
       label_hi TEXT NOT NULL,
       label_en TEXT NOT NULL,

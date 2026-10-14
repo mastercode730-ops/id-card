@@ -7,3 +7,4 @@ source_files/
 extract_logos.py
 data/*.sqlite
 .env
+.neon

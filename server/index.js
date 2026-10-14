@@ -1,3 +1,4 @@
+import fs from 'fs';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -7,10 +8,15 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { initDb, query, get, run, getSetting, setSetting } from './db.js';
 
-dotenv.config();
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Load .env.local first if present, then .env
+const envLocalPath = path.join(__dirname, '..', '.env.local');
+if (fs.existsSync(envLocalPath)) {
+  dotenv.config({ path: envLocalPath });
+}
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -844,17 +850,21 @@ app.post('/api/config/fields/reset', authenticateAdmin, async (req, res) => {
 
 app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
   try {
+    const isPg = Boolean(process.env.DATABASE_URL);
+    const todayCardsSql = isPg
+      ? `SELECT COUNT(*) as count FROM card_logs WHERE created_at::date = CURRENT_DATE`
+      : `SELECT COUNT(*) as count FROM card_logs WHERE date(created_at) = date('now')`;
+    const activeTrialsSql = isPg
+      ? `SELECT COUNT(*) as count FROM users WHERE status = 'trial' AND trial_expires_at > CURRENT_TIMESTAMP`
+      : `SELECT COUNT(*) as count FROM users WHERE status = 'trial' AND trial_expires_at > datetime('now')`;
+
     const totalCardsRow = await get(`SELECT COUNT(*) as count FROM card_logs`);
-    const todayCardsRow = await get(
-      `SELECT COUNT(*) as count FROM card_logs WHERE date(created_at) = date('now')`
-    );
+    const todayCardsRow = await get(todayCardsSql);
     const totalUsersRow = await get(`SELECT COUNT(*) as count FROM users`);
     const activeSubscribersRow = await get(
       `SELECT COUNT(*) as count FROM users WHERE status = 'active'`
     );
-    const activeTrialsRow = await get(
-      `SELECT COUNT(*) as count FROM users WHERE status = 'trial' AND trial_expires_at > datetime('now')`
-    );
+    const activeTrialsRow = await get(activeTrialsSql);
 
     res.json({
       success: true,
@@ -872,11 +882,19 @@ app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
   }
 });
 
+let dbInitialized = false;
+export async function ensureDbReady() {
+  if (!dbInitialized) {
+    await initDb();
+    await syncExistingTrialUsers();
+    dbInitialized = true;
+  }
+}
+
 // Start Server
 async function start() {
   try {
-    await initDb();
-    await syncExistingTrialUsers();
+    await ensureDbReady();
     app.listen(PORT, () => {
       console.log(`🚀 INLD ID Card Backend Server running on http://localhost:${PORT}`);
     });
@@ -886,4 +904,8 @@ async function start() {
   }
 }
 
-start();
+if (process.env.VERCEL !== '1') {
+  start();
+}
+
+export default app;
