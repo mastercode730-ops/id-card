@@ -119,6 +119,28 @@ const elements = {
   headerUserStatus: document.getElementById('headerUserStatus'),
   btnLogoutUser: document.getElementById('btnLogoutUser'),
 
+  // First Screen: Auth Hero Portal
+  authHeroSection: document.getElementById('authHeroSection'),
+  cardStudioSection: document.getElementById('cardStudioSection'),
+  heroTrialDaysText: document.getElementById('heroTrialDaysText'),
+  heroTabRegister: document.getElementById('heroTabRegister'),
+  heroTabLogin: document.getElementById('heroTabLogin'),
+  heroPanelRegister: document.getElementById('heroPanelRegister'),
+  heroPanelLogin: document.getElementById('heroPanelLogin'),
+  heroFormRegister: document.getElementById('heroFormRegister'),
+  heroRegName: document.getElementById('heroRegName'),
+  heroRegPhone: document.getElementById('heroRegPhone'),
+  heroRegPassword: document.getElementById('heroRegPassword'),
+  heroRegError: document.getElementById('heroRegError'),
+  btnHeroSubmitReg: document.getElementById('btnHeroSubmitReg'),
+  heroLinkToLogin: document.getElementById('heroLinkToLogin'),
+  heroFormLogin: document.getElementById('heroFormLogin'),
+  heroLoginPhone: document.getElementById('heroLoginPhone'),
+  heroLoginPassword: document.getElementById('heroLoginPassword'),
+  heroLoginError: document.getElementById('heroLoginError'),
+  btnHeroSubmitLogin: document.getElementById('btnHeroSubmitLogin'),
+  heroLinkToRegister: document.getElementById('heroLinkToRegister'),
+
   // End-User Auth Modal
   userAuthModal: document.getElementById('userAuthModal'),
   authModalClose: document.getElementById('authModalClose'),
@@ -380,6 +402,11 @@ function escapeHtml(text) {
 // Render Header User Profile or Guest Actions
 function renderHeaderUser() {
   if (state.currentUser) {
+    // Authenticated user: show Studio, hide Hero Screen
+    if (elements.authHeroSection) elements.authHeroSection.style.display = 'none';
+    if (elements.cardStudioSection) elements.cardStudioSection.style.display = 'block';
+    if (elements.btnFillSampleQuick) elements.btnFillSampleQuick.style.display = 'inline-flex';
+
     if (elements.headerGuestActions) elements.headerGuestActions.style.display = 'none';
     if (elements.headerUserProfile) elements.headerUserProfile.style.display = 'flex';
 
@@ -413,6 +440,11 @@ function renderHeaderUser() {
       elements.whatsappNumber.value = state.currentUser.phone;
     }
   } else {
+    // Guest: First screen is the engaging Login/Register Hero Screen!
+    if (elements.authHeroSection) elements.authHeroSection.style.display = 'block';
+    if (elements.cardStudioSection) elements.cardStudioSection.style.display = 'none';
+    if (elements.btnFillSampleQuick) elements.btnFillSampleQuick.style.display = 'none';
+
     if (elements.headerGuestActions) elements.headerGuestActions.style.display = 'flex';
     if (elements.headerUserProfile) elements.headerUserProfile.style.display = 'none';
   }
@@ -454,6 +486,9 @@ async function loadSubscriptionPlans() {
 
       if (elements.regTrialDaysLabel) {
         elements.regTrialDaysLabel.textContent = `${state.trialDaysSetting} दिन`;
+      }
+      if (elements.heroTrialDaysText) {
+        elements.heroTrialDaysText.textContent = `${state.trialDaysSetting} दिन`;
       }
 
       renderPlansGrid(state.subscriptionPlans);
@@ -584,6 +619,21 @@ function switchAuthTab(tab = 'register') {
     elements.tabBtnRegister?.classList.remove('active');
     if (elements.panelLogin) elements.panelLogin.style.display = 'block';
     if (elements.panelRegister) elements.panelRegister.style.display = 'none';
+  }
+}
+
+// Hero First-Screen Tab Switcher
+function switchHeroAuthTab(tab = 'register') {
+  if (tab === 'register') {
+    elements.heroTabRegister?.classList.add('active');
+    elements.heroTabLogin?.classList.remove('active');
+    if (elements.heroPanelRegister) elements.heroPanelRegister.style.display = 'block';
+    if (elements.heroPanelLogin) elements.heroPanelLogin.style.display = 'none';
+  } else {
+    elements.heroTabLogin?.classList.add('active');
+    elements.heroTabRegister?.classList.remove('active');
+    if (elements.heroPanelLogin) elements.heroPanelLogin.style.display = 'block';
+    if (elements.heroPanelRegister) elements.heroPanelRegister.style.display = 'none';
   }
 }
 
@@ -939,12 +989,138 @@ async function handleLogin(e) {
   }
 }
 
+// Handle Hero Register
+async function handleHeroRegister(e) {
+  e.preventDefault();
+  const name = elements.heroRegName?.value.trim() || '';
+  const phone = elements.heroRegPhone?.value.trim() || '';
+  const password = elements.heroRegPassword?.value || '';
+
+  if (elements.heroRegError) elements.heroRegError.style.display = 'none';
+
+  if (!name || name.length < 2) {
+    showAuthError(elements.heroRegError, 'कृपया अपना पूरा नाम दर्ज करें');
+    return;
+  }
+  if (!phone || phone.length < 10) {
+    showAuthError(elements.heroRegError, 'कृपया 10 अंकों का मान्य मोबाइल नंबर दर्ज करें');
+    return;
+  }
+  if (!password || password.length < 4) {
+    showAuthError(elements.heroRegError, 'पासवर्ड कम से कम 4 अक्षरों का होना चाहिए');
+    return;
+  }
+
+  if (elements.btnHeroSubmitReg) {
+    elements.btnHeroSubmitReg.disabled = true;
+    elements.btnHeroSubmitReg.textContent = 'खाता बनाया जा रहा है...';
+  }
+
+  try {
+    const res = await fetch('/api/user/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, phone, password })
+    });
+    const data = await res.json();
+
+    if (data.success && data.token) {
+      state.userToken = data.token;
+      state.currentUser = data.user;
+      localStorage.setItem('inld_user_token', data.token);
+
+      renderHeaderUser();
+
+      showToast(`🎉 बधाई! आपका ${data.trialDays || 7} दिन का फ्री ट्रायल शुरू हो गया है!`);
+      confetti({
+        particleCount: 120,
+        spread: 90,
+        origin: { y: 0.5 },
+        colors: ['#0b4d2e', '#d4af37', '#16a34a', '#fce278']
+      });
+
+      // Auto fill form inputs
+      if (elements.inputName && !elements.inputName.value) elements.inputName.value = name;
+      if (elements.inputMobile && !elements.inputMobile.value) elements.inputMobile.value = phone;
+
+      // Smooth scroll down to card studio
+      elements.cardStudioSection?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      showAuthError(elements.heroRegError, data.error || 'पंजीकरण में त्रुटि हुई');
+    }
+  } catch (err) {
+    showAuthError(elements.heroRegError, 'नेटवर्क त्रुटि, कृपया पुनः प्रयास करें');
+  } finally {
+    if (elements.btnHeroSubmitReg) {
+      elements.btnHeroSubmitReg.disabled = false;
+      elements.btnHeroSubmitReg.textContent = '🚀 तुरंत शुरू करें (Free Trial)';
+    }
+  }
+}
+
+// Handle Hero Login
+async function handleHeroLogin(e) {
+  e.preventDefault();
+  const phone = elements.heroLoginPhone?.value.trim() || '';
+  const password = elements.heroLoginPassword?.value || '';
+
+  if (elements.heroLoginError) elements.heroLoginError.style.display = 'none';
+
+  if (!phone) {
+    showAuthError(elements.heroLoginError, 'कृपया अपना मोबाइल नंबर दर्ज करें');
+    return;
+  }
+  if (!password) {
+    showAuthError(elements.heroLoginError, 'कृपया अपना पासवर्ड दर्ज करें');
+    return;
+  }
+
+  if (elements.btnHeroSubmitLogin) {
+    elements.btnHeroSubmitLogin.disabled = true;
+    elements.btnHeroSubmitLogin.textContent = 'लॉगिन किया जा रहा है...';
+  }
+
+  try {
+    const res = await fetch('/api/user/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, password })
+    });
+    const data = await res.json();
+
+    if (data.success && data.token) {
+      state.userToken = data.token;
+      state.currentUser = data.user;
+      localStorage.setItem('inld_user_token', data.token);
+
+      renderHeaderUser();
+      showToast(`✓ स्वागत है, ${data.user.name}!`);
+
+      if (elements.inputName && !elements.inputName.value) elements.inputName.value = data.user.name;
+      if (elements.inputMobile && !elements.inputMobile.value) elements.inputMobile.value = data.user.phone;
+
+      // Smooth scroll down to card studio
+      elements.cardStudioSection?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      showAuthError(elements.heroLoginError, data.error || 'लॉगिन में त्रुटि');
+    }
+  } catch (err) {
+    showAuthError(elements.heroLoginError, 'नेटवर्क त्रुटि, कृपया पुनः प्रयास करें');
+  } finally {
+    if (elements.btnHeroSubmitLogin) {
+      elements.btnHeroSubmitLogin.disabled = false;
+      elements.btnHeroSubmitLogin.textContent = '🔑 पोर्टल में प्रवेश करें';
+    }
+  }
+}
+
 // Handle Logout
 function handleLogout() {
   state.userToken = null;
   state.currentUser = null;
   localStorage.removeItem('inld_user_token');
   renderHeaderUser();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
   showToast('सफलतापूर्वक लॉगआउट कर दिया गया है।');
 }
 
@@ -972,9 +1148,43 @@ async function init() {
 // Event Listeners
 function setupEventListeners() {
   // Header User Auth Buttons
-  elements.btnOpenLogin?.addEventListener('click', () => openAuthModal('login'));
-  elements.btnOpenRegister?.addEventListener('click', () => openAuthModal('register'));
+  elements.btnOpenLogin?.addEventListener('click', () => {
+    if (elements.authHeroSection && elements.authHeroSection.style.display !== 'none') {
+      switchHeroAuthTab('login');
+      elements.heroPanelLogin?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      openAuthModal('login');
+    }
+  });
+  elements.btnOpenRegister?.addEventListener('click', () => {
+    if (elements.authHeroSection && elements.authHeroSection.style.display !== 'none') {
+      switchHeroAuthTab('register');
+      elements.heroPanelRegister?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      openAuthModal('register');
+    }
+  });
   elements.btnLogoutUser?.addEventListener('click', handleLogout);
+
+  // Hero First-Screen Auth Controls & Submit
+  elements.heroTabRegister?.addEventListener('click', () => switchHeroAuthTab('register'));
+  elements.heroTabLogin?.addEventListener('click', () => switchHeroAuthTab('login'));
+  elements.heroLinkToLogin?.addEventListener('click', (e) => {
+    e.preventDefault();
+    switchHeroAuthTab('login');
+  });
+  elements.heroLinkToRegister?.addEventListener('click', (e) => {
+    e.preventDefault();
+    switchHeroAuthTab('register');
+  });
+  elements.heroFormRegister?.addEventListener('submit', handleHeroRegister);
+  elements.heroFormLogin?.addEventListener('submit', handleHeroLogin);
+  elements.heroRegPhone?.addEventListener('input', () => {
+    elements.heroRegPhone.value = elements.heroRegPhone.value.replace(/[^0-9]/g, '');
+  });
+  elements.heroLoginPhone?.addEventListener('input', () => {
+    elements.heroLoginPhone.value = elements.heroLoginPhone.value.replace(/[^0-9]/g, '');
+  });
 
   // Auth Modal Controls
   elements.authModalClose?.addEventListener('click', closeAuthModal);

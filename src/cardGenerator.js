@@ -413,6 +413,13 @@ export async function renderBackCard(canvas, data) {
     ctx.clip();
     ctx.drawImage(backImg, 0, 0, W, H);
 
+    // Apply very subtle yellowish tint to pure white areas (multiply preserves sharp text & colors)
+    ctx.save();
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = '#FAF6E6'; // very subtle, elegant warm yellowish tone
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+
     // Outer border of entire card
     ctx.lineWidth = 3;
     ctx.strokeStyle = '#0b4d2e';
@@ -424,7 +431,7 @@ export async function renderBackCard(canvas, data) {
   // Outer Card Background with rounded corners
   ctx.save();
   drawRoundRect(ctx, 0, 0, W, H, 24);
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = '#FAF6E6'; // very subtle, elegant warm yellowish tone
   ctx.fill();
   ctx.clip();
 

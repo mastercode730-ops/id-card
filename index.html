@@ -55,11 +55,170 @@
   </header>
 
   <!-- Main Container -->
-  <main class="page-container">
+  <main class="page-container" id="mainPageContainer">
 
-    <!-- Form Container -->
-    <div class="card-form-wrapper" id="formWrapper">
-      <form id="cardForm" autocomplete="off" novalidate>
+    <!-- 1. AUTH & WELCOME HERO PORTAL (The primary first screen for guests) -->
+    <section class="auth-hero-section" id="authHeroSection">
+      <div class="auth-hero-grid">
+        
+        <!-- Left Branding & Value Proposition -->
+        <div class="auth-hero-branding">
+          <div class="hero-brand-emblem-wrap">
+            <img src="/assets/logo_img.png" alt="INLD Logo" class="hero-brand-logo">
+            <span class="hero-brand-tag">इंडियन नेशनल लोकदल (INLD)</span>
+          </div>
+
+          <h2 class="hero-title">
+            डिजिटल सदस्यता पहचान पत्र पोर्टल
+          </h2>
+          <p class="hero-subtitle">
+            चौधरी देवी लाल अमर रहें • अपनी सदस्यता आईडी बनाएं और तुरंत आधिकारिक फ्रंट व बैक HD कार्ड प्राप्त करें।
+          </p>
+
+          <!-- Leaders Avatars Row -->
+          <div class="hero-leaders-row">
+            <div class="hero-leader-item">
+              <div class="leader-avatar-wrap">
+                <img src="/assets/l2_img.png" alt="Chaudhary Devi Lal" class="leader-avatar-img">
+              </div>
+              <span>ताऊ देवी लाल</span>
+            </div>
+            <div class="hero-leader-item">
+              <div class="leader-avatar-wrap">
+                <img src="/assets/l3_img.png" alt="Om Prakash Chautala" class="leader-avatar-img">
+              </div>
+              <span>चौ. ओम प्रकाश</span>
+            </div>
+            <div class="hero-leader-item">
+              <div class="leader-avatar-wrap">
+                <img src="/assets/l1_img.png" alt="Abhay Singh Chautala" class="leader-avatar-img">
+              </div>
+              <span>चौ. अभय सिंह</span>
+            </div>
+          </div>
+
+          <!-- Feature Bullets -->
+          <ul class="hero-features-list">
+            <li>
+              <span class="feat-icon">🎁</span>
+              <div>
+                <strong>मुफ़्त ट्रायल:</strong> रजिस्ट्रेशन करते ही <span id="heroTrialDaysText">7 दिन</span> का फ्री ट्रायल तुरंत शुरू होगा।
+              </div>
+            </li>
+            <li>
+              <span class="feat-icon">🪪</span>
+              <div>
+                <strong>फ्रंट व बैक (Front & Back):</strong> दोनों साइड्स का सम्पूर्ण प्रिंट-रेडी आधिकारिक सदस्यता कार्ड।
+              </div>
+            </li>
+            <li>
+              <span class="feat-icon">🖨️</span>
+              <div>
+                <strong>300 DPI PDF:</strong> प्रेस-क्वालिटी HD इमेज एवं 2-पेज सम्पूर्ण PDF एक्सपोर्ट।
+              </div>
+            </li>
+            <li>
+              <span class="feat-icon">⚡</span>
+              <div>
+                <strong>WhatsApp शेयर:</strong> अपने हलके व कार्यकर्ताओं को एक क्लिक में भेजें।
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Right: Engaging Interactive Auth Card -->
+        <div class="auth-hero-card">
+          <div class="hero-card-header">
+            <h3>पोर्टल में प्रवेश करें</h3>
+            <p>कार्ड निर्माण हेतु खाता बनाएं या लॉगिन करें</p>
+          </div>
+
+          <!-- Auth Mode Tabs -->
+          <div class="hero-auth-tabs">
+            <button type="button" class="hero-tab-btn active" id="heroTabRegister">
+              ✨ नया रजिस्ट्रेशन (Free Trial)
+            </button>
+            <button type="button" class="hero-tab-btn" id="heroTabLogin">
+              🔑 लॉगिन (Sign In)
+            </button>
+          </div>
+
+          <div class="hero-card-body">
+            <!-- Registration Panel -->
+            <div class="hero-tab-panel active" id="heroPanelRegister">
+              <div class="hero-trial-banner">
+                🎉 <strong>मुफ़्त ट्रायल:</strong> नया खाता बनाते ही फ्री ट्रायल तुरंत एक्टिवेट होगा!
+              </div>
+              <form id="heroFormRegister" autocomplete="off">
+                <div class="hero-field-group">
+                  <label for="heroRegName">सदस्य का पूरा नाम (Full Name) <span class="req-star">*</span></label>
+                  <input type="text" id="heroRegName" placeholder="अपना पूरा नाम दर्ज करें" required>
+                </div>
+
+                <div class="hero-field-group">
+                  <label for="heroRegPhone">मोबाइल नंबर (Mobile No) <span class="req-star">*</span></label>
+                  <div class="input-phone-group">
+                    <span class="phone-prefix">+91</span>
+                    <input type="tel" id="heroRegPhone" placeholder="10 अंकों का मोबाइल नंबर" maxlength="10" required>
+                  </div>
+                </div>
+
+                <div class="hero-field-group">
+                  <label for="heroRegPassword">पासवर्ड बनाएं (Create Password) <span class="req-star">*</span></label>
+                  <input type="password" id="heroRegPassword" placeholder="कम से कम 4 अक्षरों का पासवर्ड" minlength="4" required>
+                </div>
+
+                <div class="auth-error-msg" id="heroRegError" style="display: none;"></div>
+
+                <button type="submit" class="btn-hero-submit" id="btnHeroSubmitReg">
+                  🚀 खाता बनाएं और फ्री ट्रायल शुरू करें
+                </button>
+              </form>
+
+              <div class="hero-switch-note">
+                पहले से पंजीकृत हैं? <a href="#" id="heroLinkToLogin">यहाँ लॉगिन करें</a>
+              </div>
+            </div>
+
+            <!-- Login Panel -->
+            <div class="hero-tab-panel" id="heroPanelLogin" style="display: none;">
+              <form id="heroFormLogin" autocomplete="off">
+                <div class="hero-field-group">
+                  <label for="heroLoginPhone">पंजीकृत मोबाइल नंबर (Mobile No) <span class="req-star">*</span></label>
+                  <div class="input-phone-group">
+                    <span class="phone-prefix">+91</span>
+                    <input type="tel" id="heroLoginPhone" placeholder="10 अंकों का मोबाइल नंबर" maxlength="10" required>
+                  </div>
+                </div>
+
+                <div class="hero-field-group">
+                  <label for="heroLoginPassword">पासवर्ड (Password) <span class="req-star">*</span></label>
+                  <input type="password" id="heroLoginPassword" placeholder="अपना पासवर्ड दर्ज करें" required>
+                </div>
+
+                <div class="auth-error-msg" id="heroLoginError" style="display: none;"></div>
+
+                <button type="submit" class="btn-hero-submit" id="btnHeroSubmitLogin">
+                  🔑 लॉगिन करें
+                </button>
+              </form>
+
+              <div class="hero-switch-note">
+                नया खाता बनाना चाहते हैं? <a href="#" id="heroLinkToRegister">यहाँ रजिस्टर करें (Free Trial)</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 2. CARD GENERATOR STUDIO (Revealed when logged in) -->
+    <div id="cardStudioSection" style="display: none;">
+
+      <!-- Form Container -->
+      <div class="card-form-wrapper" id="formWrapper">
+        <form id="cardForm" autocomplete="off" novalidate>
         
         <!-- Field 1: Photo Upload (Clean, no zoom/pan sliders) -->
         <div class="field-group" id="group-photo">
@@ -329,6 +488,7 @@
       </div>
 
     </div>
+    </div> <!-- /cardStudioSection -->
 
   </main>
 
