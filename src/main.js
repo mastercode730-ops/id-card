@@ -1166,6 +1166,14 @@ function setupEventListeners() {
   });
   elements.btnLogoutUser?.addEventListener('click', handleLogout);
 
+  // Dynamic Session Refresh on Window Focus (Syncs if admin altered trial days)
+  window.addEventListener('focus', () => {
+    if (state.userToken) {
+      checkUserSession();
+      loadSubscriptionPlans();
+    }
+  });
+
   // Hero First-Screen Auth Controls & Submit
   elements.heroTabRegister?.addEventListener('click', () => switchHeroAuthTab('register'));
   elements.heroTabLogin?.addEventListener('click', () => switchHeroAuthTab('login'));

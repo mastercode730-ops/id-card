@@ -680,6 +680,8 @@ el.btnSaveTrialSetting?.addEventListener('click', async () => {
 
     if (res.success) {
       showToast(res.message || 'ट्रायल सेटिंग्स सुरक्षित कर ली गईं!');
+      loadSubscriptions();
+      loadStats();
     } else {
       showToast(res.error || 'सहेजने में त्रुटि', false);
     }

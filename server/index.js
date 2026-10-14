@@ -80,15 +80,55 @@ function normalizePhone(rawPhone) {
   return digits;
 }
 
-// Evaluate User Subscription & Trial
-function evaluateUserStatus(user) {
+// Dynamic Free Trial Cache & Helpers
+let currentTrialDaysCache = 7;
+
+async function getActiveTrialDays() {
+  try {
+    const val = await getSetting('default_trial_days', '7');
+    currentTrialDaysCache = Math.max(0, parseInt(val, 10) || 7);
+  } catch (err) {
+    // keep cached value
+  }
+  return currentTrialDaysCache;
+}
+
+// Synchronize all existing trial users with the active trial days setting
+async function syncExistingTrialUsers(trialDays = null) {
+  try {
+    const days = trialDays !== null ? trialDays : await getActiveTrialDays();
+    const trialUsers = await query(`SELECT id, trial_started_at FROM users WHERE plan_name = 'free_trial' OR status = 'trial'`);
+    for (const u of trialUsers) {
+      const started = u.trial_started_at ? new Date(u.trial_started_at) : new Date();
+      const newExpiry = new Date(started.getTime() + days * 24 * 60 * 60 * 1000);
+      await run(
+        `UPDATE users SET trial_expires_at = ?, updated_at = ? WHERE id = ?`,
+        [newExpiry.toISOString(), new Date().toISOString(), u.id]
+      );
+    }
+    console.log(`✓ Synchronized ${trialUsers.length} existing trial users with ${days} trial days.`);
+  } catch (err) {
+    console.error('Error syncing existing trial users:', err);
+  }
+}
+
+// Evaluate User Subscription & Trial Dynamically
+function evaluateUserStatus(user, activeTrialDays = currentTrialDaysCache) {
   const now = new Date();
-  const trialExpires = new Date(user.trial_expires_at);
   const subExpires = user.subscription_expires_at ? new Date(user.subscription_expires_at) : null;
 
   const isSubscribed = Boolean(
     user.status === 'active' && (!subExpires || subExpires > now)
   );
+
+  let trialExpires;
+  if (!isSubscribed && (user.plan_name === 'free_trial' || user.status === 'trial')) {
+    // Dynamically calculate trial expiry using the user's trial_started_at + current active system trial days
+    const started = user.trial_started_at ? new Date(user.trial_started_at) : now;
+    trialExpires = new Date(started.getTime() + activeTrialDays * 24 * 60 * 60 * 1000);
+  } else {
+    trialExpires = user.trial_expires_at ? new Date(user.trial_expires_at) : now;
+  }
 
   const msRemaining = trialExpires.getTime() - now.getTime();
   const daysRemaining = Math.max(0, Math.ceil(msRemaining / (1000 * 60 * 60 * 24)));
@@ -116,7 +156,7 @@ function evaluateUserStatus(user) {
     canGenerateCard: isSubscribed || isTrialActive,
     daysRemaining,
     trialStartedAt: user.trial_started_at,
-    trialExpiresAt: user.trial_expires_at,
+    trialExpiresAt: trialExpires.toISOString(),
     subscriptionExpiresAt: user.subscription_expires_at,
     totalCardsCreated: Number(user.total_cards_created || 0)
   };
@@ -252,7 +292,8 @@ app.get('/api/user/me', authenticateUser, async (req, res) => {
     if (!user) {
       return res.status(404).json({ success: false, error: 'उपयोगकर्ता नहीं मिला।' });
     }
-    res.json({ success: true, user: evaluateUserStatus(user) });
+    const activeTrialDays = await getActiveTrialDays();
+    res.json({ success: true, user: evaluateUserStatus(user, activeTrialDays) });
   } catch (err) {
     res.status(500).json({ success: false, error: 'उपयोगकर्ता स्थिति प्राप्त करने में त्रुटि।' });
   }
@@ -563,11 +604,15 @@ app.put('/api/admin/settings/trial', authenticateAdmin, async (req, res) => {
     if (trialEnabled !== undefined) {
       await setSetting('trial_enabled', trialEnabled ? '1' : '0');
     }
+    currentTrialDaysCache = days;
 
-    console.log(`✓ Admin updated default trial days to: ${days} days`);
+    // Dynamically synchronize all existing trial users with the updated trial days
+    await syncExistingTrialUsers(days);
+
+    console.log(`✓ Admin updated default trial days to: ${days} days & synchronized existing trial users`);
     res.json({
       success: true,
-      message: `निःशुल्क ट्रायल अवधि सफलतापूर्वक ${days} दिन सेट कर दी गई है!`,
+      message: `निःशुल्क ट्रायल अवधि सफलतापूर्वक ${days} दिन सेट कर दी गई है और सभी मौजूदा सदस्यों का ट्रायल अपडेट कर दिया गया है!`,
       trialDays: days
     });
   } catch (err) {
@@ -648,8 +693,9 @@ app.put('/api/admin/plans', authenticateAdmin, async (req, res) => {
 // Admin: List all registered users & trial status
 app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
   try {
+    const activeTrialDays = await getActiveTrialDays();
     const rows = await query(`SELECT * FROM users ORDER BY created_at DESC`);
-    const evaluated = rows.map(evaluateUserStatus);
+    const evaluated = rows.map(u => evaluateUserStatus(u, activeTrialDays));
     res.json({ success: true, users: evaluated });
   } catch (err) {
     console.error('Admin users error:', err);
@@ -697,10 +743,11 @@ app.post('/api/admin/users/update', authenticateAdmin, async (req, res) => {
     }
 
     const updated = await get(`SELECT * FROM users WHERE id = ?`, [user.id]);
+    const activeTrialDays = await getActiveTrialDays();
     res.json({
       success: true,
       message: 'उपयोगकर्ता स्थिति सफलतापूर्वक अपडेट की गई।',
-      user: evaluateUserStatus(updated)
+      user: evaluateUserStatus(updated, activeTrialDays)
     });
   } catch (err) {
     console.error('Admin update user error:', err);
@@ -711,8 +758,9 @@ app.post('/api/admin/users/update', authenticateAdmin, async (req, res) => {
 // Admin Subscriptions Aliases
 app.get('/api/admin/subscriptions', authenticateAdmin, async (req, res) => {
   try {
+    const activeTrialDays = await getActiveTrialDays();
     const rows = await query(`SELECT * FROM users ORDER BY created_at DESC`);
-    const evaluated = rows.map(evaluateUserStatus);
+    const evaluated = rows.map(u => evaluateUserStatus(u, activeTrialDays));
     res.json({ success: true, subscriptions: evaluated, users: evaluated });
   } catch (err) {
     console.error('Admin subs alias error:', err);
@@ -828,6 +876,7 @@ app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
 async function start() {
   try {
     await initDb();
+    await syncExistingTrialUsers();
     app.listen(PORT, () => {
       console.log(`🚀 INLD ID Card Backend Server running on http://localhost:${PORT}`);
     });
