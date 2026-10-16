@@ -208,6 +208,11 @@
               फ़िल्टर हटाएं
             </button>
           </div>
+          <div class="status-filter-pills" id="logStatusFilter" style="margin-top: 10px; display: flex; gap: 8px;">
+            <button type="button" class="filter-pill active" data-status="all">सभी आवेदन (All)</button>
+            <button type="button" class="filter-pill" data-status="pending">⏳ लंबित (Pending)</button>
+            <button type="button" class="filter-pill" data-status="generated">✓ कार्ड तैयार (Generated)</button>
+          </div>
         </div>
 
         <!-- Logs Table Container -->
@@ -220,11 +225,11 @@
                 <th>पिता का नाम</th>
                 <th>मोबाइल / WhatsApp</th>
                 <th>राज्य एवं ज़िला</th>
+                <th>शहर / गांव</th>
                 <th>विधानसभा क्षेत्र</th>
-                <th>जाति</th>
-                <th>बूथ</th>
-                <th>तैयार होने का समय</th>
-                <th>कार्यवाही</th>
+                <th>स्थिति (Status)</th>
+                <th>समय</th>
+                <th>कार्यवाही (Actions)</th>
               </tr>
             </thead>
             <tbody id="cardLogsTableBody">
@@ -316,6 +321,200 @@
       </div>
       <div class="admin-modal-body" id="modalCardBody">
         <!-- Injected by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 1. ADMIN CARD GENERATE & EXPORT STUDIO MODAL -->
+  <div class="admin-modal-overlay" id="adminCardGenerateModal">
+    <div class="admin-modal-card generate-modal-wide">
+      <div class="admin-modal-header">
+        <div class="modal-header-info">
+          <span class="badge-tag-gold">INLD Official ID Card Studio</span>
+          <h3 id="genModalMemberTitle">सदस्य पहचान पत्र जनरेटर</h3>
+        </div>
+        <button type="button" class="modal-close" id="btnCloseGenModal">&times;</button>
+      </div>
+
+      <div class="admin-modal-body">
+        <!-- Applicant Meta Summary Bar -->
+        <div class="applicant-meta-bar" id="genApplicantMetaBar">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Live Front & Back Canvas Stages Container -->
+        <div class="admin-canvas-dual-grid">
+          <div class="admin-stage-box">
+            <div class="admin-stage-header">
+              <span class="tag-badge">सामने का भाग (Front Side - 1280×853)</span>
+            </div>
+            <div class="canvas-box-viewport">
+              <canvas id="adminCanvasFront"></canvas>
+            </div>
+            <button type="button" class="btn-side-download" id="btnAdminDlFront">
+              📥 Front PNG डाउनलोड
+            </button>
+          </div>
+
+          <div class="admin-stage-box">
+            <div class="admin-stage-header">
+              <span class="tag-badge tag-back">पीछे का भाग (Back Side - 1280×853)</span>
+            </div>
+            <div class="canvas-box-viewport">
+              <canvas id="adminCanvasBack"></canvas>
+            </div>
+            <button type="button" class="btn-side-download" id="btnAdminDlBack">
+              📥 Back PNG डाउनलोड
+            </button>
+          </div>
+        </div>
+
+        <!-- Master Export Actions Bar -->
+        <div class="admin-export-toolbar">
+          <div class="export-buttons-group">
+            <button type="button" class="btn-export-main btn-both" id="btnAdminDlBoth">
+              ✨ दोनों साइड डाउनलोड करें (Full HD Images)
+            </button>
+            <button type="button" class="btn-export-main btn-pdf" id="btnAdminDlPdf">
+              📄 2-पेज प्रिंटेबल PDF (Front + Back)
+            </button>
+            <button type="button" class="btn-export-main btn-whatsapp" id="btnAdminShareWa">
+              📱 WhatsApp पर भेजें (Send to User)
+            </button>
+          </div>
+          <div class="status-action-group">
+            <button type="button" class="btn-mark-status" id="btnAdminToggleStatus">
+              ✓ मार्क करें: कार्ड तैयार (Generated)
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. ADMIN EDIT MEMBER APPLICATION DETAILS MODAL -->
+  <div class="admin-modal-overlay" id="adminEditCardModal">
+    <div class="admin-modal-card edit-modal-card">
+      <div class="admin-modal-header">
+        <div>
+          <span class="badge-tag-blue">सदस्यता रिकॉर्ड संपादन</span>
+          <h3 id="editModalTitle">सदस्य विवरण संपादित करें</h3>
+        </div>
+        <button type="button" class="modal-close" id="btnCloseEditModal">&times;</button>
+      </div>
+
+      <div class="admin-modal-body">
+        <form id="adminEditMemberForm" autocomplete="off">
+          <input type="hidden" id="editCardId">
+
+          <!-- Photo Row -->
+          <div class="edit-photo-row">
+            <div class="edit-photo-thumb-wrap">
+              <img id="editPhotoThumb" alt="Member Photo" src="/assets/sample_member_photo.jpg">
+            </div>
+            <div class="edit-photo-input-group">
+              <label for="editPhotoInput">फ़ोटो बदलें (Upload New Photo)</label>
+              <input type="file" id="editPhotoInput" accept="image/*">
+              <small style="color: var(--text-muted);">JPG, PNG या WebP फ़ोटो चुनें</small>
+            </div>
+          </div>
+
+          <div class="edit-form-grid">
+            <div class="form-group">
+              <label for="editName">सदस्य का नाम (Full Name) *</label>
+              <input type="text" id="editName" required>
+            </div>
+
+            <div class="form-group">
+              <label for="editFather">पिताजी का नाम (Father Name) *</label>
+              <input type="text" id="editFather" required>
+            </div>
+
+            <div class="form-group">
+              <label for="editMobile">मोबाइल नंबर (Mobile No) *</label>
+              <input type="tel" id="editMobile" required maxlength="15">
+            </div>
+
+            <div class="form-group">
+              <label for="editWhatsapp">WhatsApp नंबर (Delivery No)</label>
+              <input type="tel" id="editWhatsapp" maxlength="15">
+            </div>
+
+            <div class="form-group">
+              <label for="editState">राज्य (State) *</label>
+              <select id="editState">
+                <option value="Haryana">Haryana (हरियाणा)</option>
+                <option value="Punjab">Punjab (पंजाब)</option>
+                <option value="Delhi">Delhi (दिल्ली)</option>
+                <option value="Rajasthan">Rajasthan (राजस्थान)</option>
+                <option value="Uttar Pradesh">Uttar Pradesh (उत्तर प्रदेश)</option>
+                <option value="Chandigarh">Chandigarh (चंडीगढ़)</option>
+                <option value="Himachal Pradesh">Himachal Pradesh (हिमाचल प्रदेश)</option>
+                <option value="Uttarakhand">Uttarakhand (उत्तराखंड)</option>
+                <option value="Madhya Pradesh">Madhya Pradesh (मध्य प्रदेश)</option>
+                <option value="Other">Other (अन्य राज्य)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="editDistrict">ज़िला (District) *</label>
+              <input type="text" id="editDistrict" required placeholder="जैसे Sirsa">
+            </div>
+
+            <div class="form-group">
+              <label for="editCity">शहर (City)</label>
+              <input type="text" id="editCity" placeholder="शहर का नाम">
+            </div>
+
+            <div class="form-group">
+              <label for="editVillage">गांव (Village)</label>
+              <input type="text" id="editVillage" placeholder="गांव का नाम">
+            </div>
+
+            <div class="form-group">
+              <label for="editConstituency">विधानसभा क्षेत्र (Constituency)</label>
+              <input type="text" id="editConstituency" placeholder="विधानसभा क्षेत्र">
+            </div>
+
+            <div class="form-group">
+              <label for="editConscode">विधानसभा कोड (Constituency Code)</label>
+              <input type="text" id="editConscode" placeholder="जैसे 45 या SRS">
+            </div>
+
+            <div class="form-group">
+              <label for="editDesignation">पद / दायित्व (Designation)</label>
+              <input type="text" id="editDesignation" placeholder="जैसे INLD Karyakarta">
+            </div>
+
+            <div class="form-group">
+              <label for="editDob">जन्म तिथि (DOB - DD/MM/YYYY)</label>
+              <input type="text" id="editDob" placeholder="DD/MM/YYYY">
+            </div>
+
+            <div class="form-group">
+              <label for="editCaste">जाति / वर्ग (Caste)</label>
+              <input type="text" id="editCaste" placeholder="जैसे Gen, Jat, OBC">
+            </div>
+
+            <div class="form-group">
+              <label for="editBooth">बूथ नंबर (Booth No)</label>
+              <input type="text" id="editBooth" placeholder="बूथ नंबर">
+            </div>
+
+            <div class="form-group">
+              <label for="editStatus">आवेदन स्थिति (Application Status)</label>
+              <select id="editStatus">
+                <option value="pending">⏳ लंबित (Pending)</option>
+                <option value="generated">✓ कार्ड तैयार (Generated)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="edit-modal-footer">
+            <button type="button" class="btn-cancel" id="btnCancelEdit">रद्द करें</button>
+            <button type="submit" class="btn-save-primary" id="btnSubmitEditCard">💾 परिवर्तन सहेजें (Save Changes)</button>
+          </div>
+        </form>
       </div>
     </div>
   </div>

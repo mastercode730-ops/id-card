@@ -277,19 +277,29 @@ export async function renderFrontCard(canvas, data) {
   // Key-value pairs
   const rows = [
     { label: 'Name:', val: data.name || '-' },
-    { label: "Father's Name:", val: data.father || '-' },
+    { label: "Father's Name:", val: data.father || data.father_name || '-' },
     { label: 'Mobile No:', val: data.mobile || '-' },
-    { label: 'District:', val: data.district || '-' },
+    { label: 'District:', val: data.district || '-' }
+  ];
+
+  if (data.village || data.city) {
+    const locArr = [];
+    if (data.village) locArr.push(data.village);
+    if (data.city) locArr.push(data.city);
+    rows.push({ label: data.village && data.city ? 'Village/City:' : (data.village ? 'Village:' : 'City:'), val: locArr.join(', ') });
+  }
+
+  rows.push(
     { label: 'Constituency:', val: data.constituency || '-' },
     { label: 'Designation:', val: data.designation || '-' },
     { label: 'DOB:', val: data.dob || '-' },
     { label: 'Caste:', val: data.caste || '-' },
     { label: 'Booth No:', val: data.booth || '-' },
     { label: 'Membership No:', val: membershipNo }
-  ];
+  );
 
-  let ty = 352;
-  const rowStep = 40.5;
+  let ty = rows.length > 10 ? 342 : 352;
+  const rowStep = rows.length > 10 ? 37 : 40.5;
   const valX = dx + 225;
 
   rows.forEach((row) => {

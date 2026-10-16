@@ -195,19 +195,21 @@ export async function initDb() {
       dob TEXT,
       caste TEXT,
       booth TEXT,
+      city TEXT,
+      village TEXT,
       whatsapp_number TEXT,
       photo_url TEXT,
+      status TEXT DEFAULT 'pending',
       ip_address TEXT,
       created_at ${timeType} DEFAULT CURRENT_TIMESTAMP
     );
   `);
 
-  // Ensure user_id column exists on card_logs
-  try {
-    await exec(`ALTER TABLE card_logs ADD COLUMN user_id INTEGER`);
-  } catch (e) {
-    // Column already exists
-  }
+  // Ensure user_id, city, village, status columns exist on card_logs
+  try { await exec(`ALTER TABLE card_logs ADD COLUMN user_id INTEGER`); } catch (e) {}
+  try { await exec(`ALTER TABLE card_logs ADD COLUMN city TEXT`); } catch (e) {}
+  try { await exec(`ALTER TABLE card_logs ADD COLUMN village TEXT`); } catch (e) {}
+  try { await exec(`ALTER TABLE card_logs ADD COLUMN status TEXT DEFAULT 'pending'`); } catch (e) {}
 
   // 6. Dynamic Field Configuration Table
   await exec(`
@@ -323,13 +325,15 @@ export async function initDb() {
       { key: 'inputMobile', hi: 'मोबाइल नंबर (Mobile No)', en: 'Mobile Number', type: 'tel', req: 1, enab: 1, order: 4, help: '10 अंकों का मोबाइल नंबर' },
       { key: 'selectState', hi: 'राज्य (State)', en: 'State', type: 'select', req: 1, enab: 1, order: 5, help: 'राज्य चुनें' },
       { key: 'selectDistrict', hi: 'ज़िला (District)', en: 'District', type: 'select', req: 1, enab: 1, order: 6, help: 'ज़िला चुनें' },
-      { key: 'inputConstituency', hi: 'विधानसभा क्षेत्र (Constituency)', en: 'Constituency', type: 'text', req: 1, enab: 1, order: 7, help: 'विधानसभा का नाम' },
-      { key: 'inputConscode', hi: 'विधानसभा कोड (Constituency Code)', en: 'Constituency Code', type: 'text', req: 1, enab: 1, order: 8, help: 'जैसे: 45' },
-      { key: 'inputDesignation', hi: 'पद / दायित्व (Designation)', en: 'Designation', type: 'text', req: 1, enab: 1, order: 9, help: 'पार्टी में पद' },
-      { key: 'inputDob', hi: 'जन्म तिथि (Date of Birth)', en: 'Date of Birth', type: 'text', req: 1, enab: 1, order: 10, help: 'DD/MM/YYYY' },
-      { key: 'inputCaste', hi: 'जाति / वर्ग (Caste)', en: 'Caste', type: 'text', req: 1, enab: 1, order: 11, help: 'जैसे: Jat, Gen(Brahmin), OBC...' },
-      { key: 'inputBooth', hi: 'बूथ नंबर (Booth No)', en: 'Booth Number', type: 'text', req: 1, enab: 1, order: 12, help: 'बूथ नंबर' },
-      { key: 'whatsappNumber', hi: 'WhatsApp नंबर (Card Delivery)', en: 'WhatsApp Number', type: 'tel', req: 1, enab: 1, order: 13, help: 'जिस नंबर पर कार्ड भेजना है' }
+      { key: 'inputCity', hi: 'शहर (City)', en: 'City', type: 'text', req: 0, enab: 1, order: 7, help: 'शहर का नाम (यदि लागू हो)' },
+      { key: 'inputVillage', hi: 'गांव (Village)', en: 'Village', type: 'text', req: 0, enab: 1, order: 8, help: 'गांव का नाम (यदि लागू हो)' },
+      { key: 'inputConstituency', hi: 'विधानसभा क्षेत्र (Constituency)', en: 'Constituency', type: 'text', req: 1, enab: 1, order: 9, help: 'विधानसभा का नाम' },
+      { key: 'inputConscode', hi: 'विधानसभा कोड (Constituency Code)', en: 'Constituency Code', type: 'text', req: 0, enab: 0, order: 10, help: 'जैसे: 45' },
+      { key: 'inputDesignation', hi: 'पद / दायित्व (Designation)', en: 'Designation', type: 'text', req: 1, enab: 1, order: 11, help: 'पार्टी में पद' },
+      { key: 'inputDob', hi: 'जन्म तिथि (Date of Birth)', en: 'Date of Birth', type: 'text', req: 1, enab: 1, order: 12, help: 'DD/MM/YYYY' },
+      { key: 'inputCaste', hi: 'जाति / वर्ग (Caste)', en: 'Caste', type: 'text', req: 1, enab: 1, order: 13, help: 'जैसे: Jat, Gen(Brahmin), OBC...' },
+      { key: 'inputBooth', hi: 'बूथ नंबर (Booth No)', en: 'Booth Number', type: 'text', req: 1, enab: 1, order: 14, help: 'बूथ नंबर' },
+      { key: 'whatsappNumber', hi: 'WhatsApp नंबर (Card Delivery)', en: 'WhatsApp Number', type: 'tel', req: 1, enab: 1, order: 15, help: 'जिस नंबर पर कार्ड भेजना है' }
     ];
 
     for (const f of defaultFields) {
@@ -340,5 +344,31 @@ export async function initDb() {
       );
     }
     console.log('✓ Seeded default form field configurations');
+  } else {
+    // Ensure inputCity and inputVillage exist in existing field_configs
+    try {
+      const cityField = await get(`SELECT id FROM field_configs WHERE field_key = 'inputCity'`);
+      if (!cityField) {
+        await run(
+          `INSERT INTO field_configs (field_key, label_hi, label_en, field_type, is_required, is_enabled, display_order, help_text)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          ['inputCity', 'शहर (City)', 'City', 'text', 0, 1, 7, 'शहर का नाम (यदि लागू हो)']
+        );
+        console.log('✓ Added inputCity to existing field_configs');
+      }
+      const villageField = await get(`SELECT id FROM field_configs WHERE field_key = 'inputVillage'`);
+      if (!villageField) {
+        await run(
+          `INSERT INTO field_configs (field_key, label_hi, label_en, field_type, is_required, is_enabled, display_order, help_text)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          ['inputVillage', 'गांव (Village)', 'Village', 'text', 0, 1, 8, 'गांव का नाम (यदि लागू हो)']
+        );
+        console.log('✓ Added inputVillage to existing field_configs');
+      }
+      // Ensure inputConscode is disabled by default unless admin modified
+      await run(`UPDATE field_configs SET is_enabled = 0, is_required = 0 WHERE field_key = 'inputConscode' AND is_enabled = 1`);
+    } catch (err) {
+      console.warn('Field sync error:', err.message);
+    }
   }
 }

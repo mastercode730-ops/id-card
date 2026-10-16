@@ -116,6 +116,24 @@
           <div class="field-error" id="error-selectDistrict"></div>
         </div>
 
+        <!-- Field 6B: City -->
+        <div class="field-group" id="group-city">
+          <label class="field-label" for="inputCity">
+            शहर (City)
+          </label>
+          <input type="text" id="inputCity" placeholder="शहर का नाम (यदि लागू हो)">
+          <div class="field-error" id="error-inputCity"></div>
+        </div>
+
+        <!-- Field 6C: Village -->
+        <div class="field-group" id="group-village">
+          <label class="field-label" for="inputVillage">
+            गांव (Village)
+          </label>
+          <input type="text" id="inputVillage" placeholder="गांव का नाम (यदि लागू हो)">
+          <div class="field-error" id="error-inputVillage"></div>
+        </div>
+
         <!-- Field 7: Constituency -->
         <div class="field-group" id="group-constituency">
           <label class="field-label" for="inputConstituency">
@@ -125,10 +143,10 @@
           <div class="field-error" id="error-inputConstituency"></div>
         </div>
 
-        <!-- Field 8: Constituency Code -->
-        <div class="field-group" id="group-conscode">
+        <!-- Field 8: Constituency Code (Disabled by default) -->
+        <div class="field-group" id="group-conscode" style="display: none;">
           <label class="field-label" for="inputConscode">
-            Constituency Code <span class="req-star">*</span>
+            विधानसभा कोड (Constituency Code)
           </label>
           <input type="text" id="inputConscode" placeholder="जैसे 45 या SRS">
           <div class="field-error" id="error-inputConscode"></div>
@@ -193,119 +211,37 @@
 
         <!-- Submit Button -->
         <button type="submit" class="btn-card-create" id="btnSubmitCard">
-          कार्ड बनाएं
+          📋 सदस्यता आवेदन जमा करें (Submit Application)
         </button>
 
       </form>
     </div>
 
-    <!-- Generated ID Card Preview & Actions Section (Revealed on click) -->
-    <div class="preview-result-wrapper" id="previewResultSection" style="display: none;">
-      
-      <div class="preview-card-box">
-        
-        <div class="preview-header-bar">
-          <div class="preview-badge">
-            <span class="dot-live"></span> आपका सम्पूर्ण पहचान पत्र तैयार है! (Full ID Card Generated)
-          </div>
-          <div class="tab-pill-group">
-            <button type="button" class="tab-btn active" id="tabBoth">
-              दोनों साइड (Both Sides)
-            </button>
-            <button type="button" class="tab-btn" id="tabFront">
-              सामने (Front)
-            </button>
-            <button type="button" class="tab-btn" id="tabBack">
-              पीछे (Back)
-            </button>
-          </div>
+    <!-- Submission Success Confirmation Box (Shown after user submits application) -->
+    <div class="submission-success-wrapper" id="submissionSuccessSection" style="display: none;">
+      <div class="submission-success-card">
+        <div class="success-icon-badge">
+          <span class="icon-checkmark">✓</span>
+        </div>
+        <h2 class="success-title">सदस्यता आवेदन सफलतापूर्वक जमा हो गया!</h2>
+        <div class="success-ref-pill">
+          <span>आवेदन संदर्भ संख्या: </span>
+          <strong id="successRefNo">INLD-REQ-2026</strong>
+        </div>
+        <p class="success-message">
+          आपकी जानकारी और फ़ोटो हमारे पास सुरक्षित जमा हो गई है। इंडियन नेशनल लोकदल (INLD) पार्टी प्रशासक द्वारा आपके विवरण का सत्यापन करने के पश्चात आपका आधिकारिक फ्रंट व बैक HD पहचान पत्र तैयार करके आपके WhatsApp नंबर पर भेज दिया जाएगा।
+        </p>
+
+        <div class="success-summary-box" id="successSummaryBox">
+          <!-- Populated by JS -->
         </div>
 
-        <!-- Dual Card Stages Container (Front & Back) -->
-        <div class="dual-cards-container" id="dualCardsContainer">
-          
-          <!-- Front Card Block -->
-          <div class="card-side-block" id="blockFront">
-            <div class="card-side-tag">
-              <span class="tag-badge">सामने का भाग (Front Side)</span>
-              <span class="side-dim">1280 × 853 px • HD 300 DPI</span>
-            </div>
-            <div class="canvas-viewport" id="cardStageFront">
-              <canvas id="idCardCanvasFront"></canvas>
-            </div>
-            <div class="side-quick-actions">
-              <button type="button" class="btn-side-download" id="btnDownloadFrontQuick">
-                📥 सामने का भाग डाउनलोड करें (Front PNG)
-              </button>
-              <button type="button" class="btn-side-zoom" id="btnZoomFront">
-                🔍 बड़ा देखें
-              </button>
-            </div>
-          </div>
-
-          <!-- Back Card Block -->
-          <div class="card-side-block" id="blockBack">
-            <div class="card-side-tag">
-              <span class="tag-badge tag-back">पीछे का भाग (Back Side)</span>
-              <span class="side-dim">1280 × 853 px • HD 300 DPI</span>
-            </div>
-            <div class="canvas-viewport" id="cardStageBack">
-              <canvas id="idCardCanvasBack"></canvas>
-            </div>
-            <div class="side-quick-actions">
-              <button type="button" class="btn-side-download" id="btnDownloadBackQuick">
-                📥 पीछे का भाग डाउनलोड करें (Back PNG)
-              </button>
-              <button type="button" class="btn-side-zoom" id="btnZoomBack">
-                🔍 बड़ा देखें
-              </button>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Master Actions Section -->
-        <div class="actions-grid-full">
-          <button type="button" id="btnDownloadBoth" class="btn-dl btn-both-dl">
-            ✨ दोनों साइड डाउनलोड करें (Download Both Sides - HD PNG)
+        <div class="success-action-row">
+          <button type="button" id="btnNewApplication" class="btn-pill btn-gold">
+            ➕ नया सदस्यता आवेदन भरें (Submit Another Application)
           </button>
-          
-          <div class="actions-sub-row">
-            <button type="button" id="btnDownloadPdf" class="btn-dl btn-pdf">
-              📄 2-पेज सम्पूर्ण PDF (Front + Back)
-            </button>
-            <button type="button" id="btnPrintCard" class="btn-dl btn-print">
-              🖨️ सम्पूर्ण कार्ड प्रिंट करें (Print Full Card)
-            </button>
-            <button type="button" id="btnCopyImage" class="btn-dl btn-copy">
-              📋 कार्ड कॉपी करें (Copy)
-            </button>
-          </div>
         </div>
-
-        <!-- WhatsApp Direct Send Card -->
-        <div class="whatsapp-action-box">
-          <div class="wa-box-header">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.669-.699c.969.53 1.771.82 2.791.82 3.18 0 5.767-2.586 5.768-5.766 0-3.18-2.587-5.767-5.768-5.767zm7.644 5.766c-.002 4.225-3.441 7.663-7.667 7.663-1.341 0-2.613-.35-3.722-.96l-4.14 1.084 1.107-4.043c-.702-1.168-1.074-2.517-1.076-3.744.002-4.226 3.441-7.665 7.668-7.665 4.226 0 7.665 3.44 7.667 7.665z"/>
-            </svg>
-            <span>WhatsApp पर कार्ड भेजें</span>
-          </div>
-          <div class="wa-action-row">
-            <button type="button" id="btnShareWhatsapp" class="btn-whatsapp-direct">
-              WhatsApp पर भेजें (Send to WhatsApp)
-            </button>
-          </div>
-          <p class="wa-note">डाउनलोड करने के बाद WhatsApp खुलेगा — फ़ोटो संलग्न करके भेज सकते हैं।</p>
-        </div>
-
-        <!-- Back to form button -->
-        <button type="button" id="btnBackToForm" class="btn-back-form">
-          ✏️ जानकारी बदलें / दूसरा कार्ड बनाएं (Edit Details)
-        </button>
-
       </div>
-
     </div>
 
   </main>

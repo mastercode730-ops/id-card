@@ -394,13 +394,13 @@ app.post('/api/cards', optionalUserAuth, async (req, res) => {
 
     const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
 
-    // Insert card log
+    // Insert card log / request
     const result = await run(
       `INSERT INTO card_logs (
         user_id, membership_no, name, father_name, mobile, state, district,
-        constituency, conscode, designation, dob, caste, booth,
-        whatsapp_number, photo_url, ip_address
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        city, village, constituency, conscode, designation, dob, caste, booth,
+        whatsapp_number, photo_url, status, ip_address
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         user ? user.id : null,
         data.membershipNo || '',
@@ -409,6 +409,8 @@ app.post('/api/cards', optionalUserAuth, async (req, res) => {
         data.mobile || '',
         data.state || '',
         data.district || '',
+        data.city || '',
+        data.village || '',
         data.constituency || '',
         data.conscode || '',
         data.designation || '',
@@ -417,6 +419,7 @@ app.post('/api/cards', optionalUserAuth, async (req, res) => {
         data.booth || '',
         data.whatsappNumber || '',
         data.photoThumb || '',
+        data.status || 'pending',
         ipAddress
       ]
     );
@@ -435,10 +438,15 @@ app.post('/api/cards', optionalUserAuth, async (req, res) => {
 // Admin: Get all card logs
 app.get('/api/cards', authenticateAdmin, async (req, res) => {
   try {
-    const { q, state, district, limit = 100, offset = 0 } = req.query;
+    const { q, state, district, status, limit = 100, offset = 0 } = req.query;
 
     let sql = `SELECT * FROM card_logs WHERE 1=1`;
     const params = [];
+
+    if (status && status !== 'all') {
+      sql += ` AND status = ?`;
+      params.push(status);
+    }
 
     if (q) {
       sql += ` AND (name LIKE ? OR mobile LIKE ? OR father_name LIKE ? OR constituency LIKE ? OR caste LIKE ?)`;
@@ -470,6 +478,55 @@ app.get('/api/cards', authenticateAdmin, async (req, res) => {
   } catch (err) {
     console.error('Fetch card logs error:', err);
     res.status(500).json({ success: false, error: 'कार्ड लॉग्स लोड करने में त्रुटि।' });
+  }
+});
+
+// Admin: Update card log / member request details
+app.put('/api/cards/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const d = req.body;
+
+    const existing = await get(`SELECT * FROM card_logs WHERE id = ?`, [id]);
+    if (!existing) {
+      return res.status(404).json({ success: false, error: 'कार्ड रिकॉर्ड नहीं मिला।' });
+    }
+
+    const photoUrl = d.photo_url || d.photoThumb || existing.photo_url;
+
+    await run(
+      `UPDATE card_logs
+       SET name = ?, father_name = ?, mobile = ?, state = ?, district = ?,
+           city = ?, village = ?, constituency = ?, conscode = ?,
+           designation = ?, dob = ?, caste = ?, booth = ?,
+           whatsapp_number = ?, photo_url = ?, status = ?
+       WHERE id = ?`,
+      [
+        d.name !== undefined ? d.name : existing.name,
+        d.father_name !== undefined ? d.father_name : (d.father !== undefined ? d.father : existing.father_name),
+        d.mobile !== undefined ? d.mobile : existing.mobile,
+        d.state !== undefined ? d.state : existing.state,
+        d.district !== undefined ? d.district : existing.district,
+        d.city !== undefined ? d.city : existing.city,
+        d.village !== undefined ? d.village : existing.village,
+        d.constituency !== undefined ? d.constituency : existing.constituency,
+        d.conscode !== undefined ? d.conscode : existing.conscode,
+        d.designation !== undefined ? d.designation : existing.designation,
+        d.dob !== undefined ? d.dob : existing.dob,
+        d.caste !== undefined ? d.caste : existing.caste,
+        d.booth !== undefined ? d.booth : existing.booth,
+        d.whatsapp_number !== undefined ? d.whatsapp_number : (d.whatsappNumber !== undefined ? d.whatsappNumber : existing.whatsapp_number),
+        photoUrl,
+        d.status !== undefined ? d.status : (existing.status || 'pending'),
+        id
+      ]
+    );
+
+    const updated = await get(`SELECT * FROM card_logs WHERE id = ?`, [id]);
+    res.json({ success: true, message: 'सदस्यता विवरण सफलतापूर्वक अपडेट कर दिया गया।', card: updated });
+  } catch (err) {
+    console.error('Update card log error:', err);
+    res.status(500).json({ success: false, error: 'कार्ड विवरण अपडेट करने में त्रुटि।' });
   }
 });
 

@@ -116,6 +116,8 @@ const elements = {
   inputMobile: document.getElementById('inputMobile'),
   selectState: document.getElementById('selectState'),
   selectDistrict: document.getElementById('selectDistrict'),
+  inputCity: document.getElementById('inputCity'),
+  inputVillage: document.getElementById('inputVillage'),
   inputConstituency: document.getElementById('inputConstituency'),
   inputConscode: document.getElementById('inputConscode'),
   inputDesignation: document.getElementById('inputDesignation'),
@@ -125,19 +127,13 @@ const elements = {
   selectWaCountry: document.getElementById('selectWaCountry'),
   whatsappNumber: document.getElementById('whatsappNumber'),
 
-  // Buttons
+  // Buttons & Sections
   btnSubmitCard: document.getElementById('btnSubmitCard'),
   btnFillSampleQuick: document.getElementById('btnFillSampleQuick'),
-  btnDownloadBoth: document.getElementById('btnDownloadBoth'),
-  btnDownloadFrontQuick: document.getElementById('btnDownloadFrontQuick'),
-  btnDownloadBackQuick: document.getElementById('btnDownloadBackQuick'),
-  btnZoomFront: document.getElementById('btnZoomFront'),
-  btnZoomBack: document.getElementById('btnZoomBack'),
-  btnDownloadPdf: document.getElementById('btnDownloadPdf'),
-  btnPrintCard: document.getElementById('btnPrintCard'),
-  btnCopyImage: document.getElementById('btnCopyImage'),
-  btnShareWhatsapp: document.getElementById('btnShareWhatsapp'),
-  btnBackToForm: document.getElementById('btnBackToForm'),
+  submissionSuccessSection: document.getElementById('submissionSuccessSection'),
+  successRefNo: document.getElementById('successRefNo'),
+  successSummaryBox: document.getElementById('successSummaryBox'),
+  btnNewApplication: document.getElementById('btnNewApplication'),
 
   // Modal & Toast
   zoomModal: document.getElementById('zoomModal'),
@@ -204,8 +200,10 @@ function getFormData() {
     designation: elements.inputDesignation.value.trim() || 'INLD Karyakarta',
     state: elements.selectState.value.trim() || 'Haryana',
     district: elements.selectDistrict.value.trim(),
+    city: elements.inputCity ? elements.inputCity.value.trim() : '',
+    village: elements.inputVillage ? elements.inputVillage.value.trim() : '',
     constituency: elements.inputConstituency.value.trim(),
-    conscode: elements.inputConscode.value.trim(),
+    conscode: elements.inputConscode ? elements.inputConscode.value.trim() : '',
     booth: elements.inputBooth.value.trim(),
     whatsappNumber: elements.whatsappNumber.value.trim(),
     whatsappCountryCode: elements.selectWaCountry.value,
@@ -270,6 +268,8 @@ const FIELD_GROUP_MAP = {
   inputMobile: 'group-mobile',
   selectState: 'group-state',
   selectDistrict: 'group-district',
+  inputCity: 'group-city',
+  inputVillage: 'group-village',
   inputConstituency: 'group-constituency',
   inputConscode: 'group-conscode',
   inputDesignation: 'group-designation',
@@ -399,6 +399,26 @@ function validateForm() {
     }
   }
 
+  // 6B. City validation
+  if (isFieldEnabled('inputCity') && elements.inputCity) {
+    const cityVal = elements.inputCity.value.trim();
+    if (isFieldRequired('inputCity') && !cityVal) {
+      markError('inputCity', 'शहर का नाम दर्ज करना अनिवार्य है');
+    } else {
+      clearFieldError('inputCity');
+    }
+  }
+
+  // 6C. Village validation
+  if (isFieldEnabled('inputVillage') && elements.inputVillage) {
+    const villageVal = elements.inputVillage.value.trim();
+    if (isFieldRequired('inputVillage') && !villageVal) {
+      markError('inputVillage', 'गांव का नाम दर्ज करना अनिवार्य है');
+    } else {
+      clearFieldError('inputVillage');
+    }
+  }
+
   // 7. Constituency validation
   const constVal = elements.inputConstituency.value.trim();
   if (isFieldEnabled('inputConstituency')) {
@@ -514,8 +534,10 @@ function loadSampleData() {
   elements.inputMobile.value = '9815395397';
   elements.selectState.value = 'Haryana';
   updateDistrictsForState('Haryana', 'Sirsa');
-  elements.inputConstituency.value = 'Sursa';
-  elements.inputConscode.value = '45';
+  if (elements.inputCity) elements.inputCity.value = 'Sirsa';
+  if (elements.inputVillage) elements.inputVillage.value = 'Chautala';
+  elements.inputConstituency.value = 'Sirsa';
+  if (elements.inputConscode) elements.inputConscode.value = '45';
   elements.inputDesignation.value = 'State Social Media Coordinator';
   elements.inputDob.value = '20/05/1973';
   elements.inputCaste.value = 'Gen(Brahmin)';
@@ -636,7 +658,7 @@ function setupEventListeners() {
 
   // Clear errors on field input/change
   const textFields = [
-    'inputName', 'inputFather', 'inputConstituency', 'inputConscode',
+    'inputName', 'inputFather', 'inputCity', 'inputVillage', 'inputConstituency', 'inputConscode',
     'inputDesignation', 'inputCaste', 'inputBooth', 'selectDistrict'
   ];
   textFields.forEach((id) => {
@@ -656,7 +678,7 @@ function setupEventListeners() {
   // Sample data button
   elements.btnFillSampleQuick.addEventListener('click', loadSampleData);
 
-  // Form Submit: "कार्ड बनाएं"
+  // Form Submit: Submit Application to Admin
   elements.form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -672,42 +694,81 @@ function setupEventListeners() {
       return;
     }
 
+    const originalBtnText = elements.btnSubmitCard.textContent;
+    elements.btnSubmitCard.disabled = true;
+    elements.btnSubmitCard.textContent = 'आवेदन जमा किया जा रहा है...';
 
+    const cardData = {
+      ...getFormData(),
+      photoThumb: state.userPhoto ? elements.photoThumb.src : ''
+    };
 
-    // 4. Generate Card
-    await updateCard();
-    state.cardGenerated = true;
-
-    // 5. Send Card Creation Log to Backend
     try {
-      const cardData = {
-        ...getFormData(),
-        photoThumb: state.userPhoto ? elements.photoThumb.src : ''
-      };
-      fetch('/api/cards', {
+      const res = await fetch('/api/cards', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cardData)
-      }).catch(err => console.warn('Card log failed:', err));
-    } catch (e) {}
+      });
+      const data = await res.json();
 
-    // Reveal preview section
-    elements.previewResultSection.style.display = 'block';
+      if (data.success) {
+        // Hide form and show rich success confirmation
+        if (elements.formWrapper) elements.formWrapper.style.display = 'none';
+        if (elements.submissionSuccessSection) {
+          elements.submissionSuccessSection.style.display = 'block';
 
-    // Confetti celebration
-    confetti({
-      particleCount: 90,
-      spread: 75,
-      origin: { y: 0.6 },
-      colors: ['#0b4d2e', '#d4af37', '#16a34a', '#fce278']
-    });
+          const refNumber = cardData.membershipNo || ('INLD-REQ-#' + (data.id || Math.floor(1000 + Math.random() * 9000)));
+          if (elements.successRefNo) elements.successRefNo.textContent = refNumber;
 
-    showToast('🎉 आपका पहचान पत्र तैयार हो गया है!');
+          if (elements.successSummaryBox) {
+            elements.successSummaryBox.innerHTML = `
+              <div class="summary-line"><span>आवेदक का नाम:</span> <strong>${cardData.name}</strong></div>
+              <div class="summary-line"><span>पिताजी का नाम:</span> <strong>${cardData.father}</strong></div>
+              <div class="summary-line"><span>मोबाइल नंबर:</span> <strong>${cardData.mobile}</strong></div>
+              <div class="summary-line"><span>WhatsApp नंबर:</span> <strong>${cardData.whatsappNumber || cardData.mobile}</strong></div>
+              <div class="summary-line"><span>ज़िला एवं राज्य:</span> <strong>${cardData.district}, ${cardData.state}</strong></div>
+              ${cardData.city ? `<div class="summary-line"><span>शहर:</span> <strong>${cardData.city}</strong></div>` : ''}
+              ${cardData.village ? `<div class="summary-line"><span>गांव:</span> <strong>${cardData.village}</strong></div>` : ''}
+              <div class="summary-line"><span>विधानसभा क्षेत्र:</span> <strong>${cardData.constituency}</strong></div>
+            `;
+          }
 
-    // Smooth scroll down to preview
-    setTimeout(() => {
-      elements.previewResultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 100);
+          // Confetti celebration
+          confetti({
+            particleCount: 100,
+            spread: 80,
+            origin: { y: 0.5 },
+            colors: ['#0b4d2e', '#d4af37', '#16a34a', '#fce278']
+          });
+
+          showToast('✓ सदस्यता आवेदन सफलतापूर्वक जमा हो गया!');
+          elements.submissionSuccessSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      } else {
+        showToast(data.error || 'आवेदन जमा करने में त्रुटि हुई', false);
+      }
+    } catch (err) {
+      console.error('Submit error:', err);
+      showToast('नेटवर्क त्रुटि, कृपया पुनः प्रयास करें', false);
+    } finally {
+      elements.btnSubmitCard.disabled = false;
+      elements.btnSubmitCard.textContent = originalBtnText;
+    }
+  });
+
+  // Submit Another Application Handler
+  elements.btnNewApplication?.addEventListener('click', () => {
+    elements.form.reset();
+    state.userPhoto = null;
+    if (elements.photoInput) elements.photoInput.value = '';
+    if (elements.photoThumb) elements.photoThumb.src = '';
+    if (elements.photoThumbContainer) elements.photoThumbContainer.style.display = 'none';
+
+    if (elements.submissionSuccessSection) elements.submissionSuccessSection.style.display = 'none';
+    if (elements.formWrapper) elements.formWrapper.style.display = 'block';
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    showToast('नया आवेदन फ़ॉर्म तैयार है।');
   });
 
   // Download canvas helper
