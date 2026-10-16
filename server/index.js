@@ -384,18 +384,7 @@ app.post('/api/cards', optionalUserAuth, async (req, res) => {
       }
     }
 
-    // Enforce Trial & Subscription
     if (user) {
-      const status = evaluateUserStatus(user);
-      if (!status.canGenerateCard) {
-        return res.status(403).json({
-          success: false,
-          error: 'आपका निःशुल्क ट्रायल समाप्त हो गया है। पहचान पत्र बनाने के लिए कृपया सब्सक्रिप्शन प्लान चुनें।',
-          trialExpired: true,
-          user: status
-        });
-      }
-
       // Increment card counter for user
       await run(
         `UPDATE users SET total_cards_created = total_cards_created + 1, updated_at = ? WHERE id = ?`,
@@ -854,26 +843,19 @@ app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
     const todayCardsSql = isPg
       ? `SELECT COUNT(*) as count FROM card_logs WHERE created_at::date = CURRENT_DATE`
       : `SELECT COUNT(*) as count FROM card_logs WHERE date(created_at) = date('now')`;
-    const activeTrialsSql = isPg
-      ? `SELECT COUNT(*) as count FROM users WHERE status = 'trial' AND trial_expires_at > CURRENT_TIMESTAMP`
-      : `SELECT COUNT(*) as count FROM users WHERE status = 'trial' AND trial_expires_at > datetime('now')`;
 
     const totalCardsRow = await get(`SELECT COUNT(*) as count FROM card_logs`);
     const todayCardsRow = await get(todayCardsSql);
-    const totalUsersRow = await get(`SELECT COUNT(*) as count FROM users`);
-    const activeSubscribersRow = await get(
-      `SELECT COUNT(*) as count FROM users WHERE status = 'active'`
-    );
-    const activeTrialsRow = await get(activeTrialsSql);
+    const activeFieldsRow = await get(`SELECT COUNT(*) as count FROM field_configs WHERE is_enabled = 1`);
+    const totalFieldsRow = await get(`SELECT COUNT(*) as count FROM field_configs`);
 
     res.json({
       success: true,
       stats: {
         totalCards: Number(totalCardsRow?.count || 0),
         todayCards: Number(todayCardsRow?.count || 0),
-        totalUsers: Number(totalUsersRow?.count || 0),
-        activeSubscribers: Number(activeSubscribersRow?.count || 0),
-        activeTrials: Number(activeTrialsRow?.count || 0)
+        activeFields: Number(activeFieldsRow?.count || 0),
+        totalFields: Number(totalFieldsRow?.count || 14)
       }
     });
   } catch (err) {

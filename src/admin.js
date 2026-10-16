@@ -5,11 +5,7 @@ const state = {
   token: localStorage.getItem('inld_admin_token') || null,
   admin: null,
   cardLogs: [],
-  fields: [],
-  subscriptions: [],
-  plans: [],
-  trialDays: 7,
-  trialEnabled: true
+  fields: []
 };
 
 // DOM Elements
@@ -34,12 +30,11 @@ const el = {
   // Stats
   statTotalCards: document.getElementById('statTotalCards'),
   statTodayCards: document.getElementById('statTodayCards'),
-  statTotalUsers: document.getElementById('statTotalUsers'),
-  statActiveTrials: document.getElementById('statActiveTrials'),
-  statSubscribers: document.getElementById('statSubscribers'),
+  statActiveFields: document.getElementById('statActiveFields'),
+  statTotalFields: document.getElementById('statTotalFields'),
   btnRefreshStats: document.getElementById('btnRefreshStats'),
   btnJumpFields: document.getElementById('btnJumpFields'),
-  btnJumpSubs: document.getElementById('btnJumpSubs'),
+  btnJumpLogs: document.getElementById('btnJumpLogs'),
 
   // Logs
   cardLogsTableBody: document.getElementById('cardLogsTableBody'),
@@ -55,17 +50,6 @@ const el = {
   fieldsListContainer: document.getElementById('fieldsListContainer'),
   btnSaveFieldConfigs: document.getElementById('btnSaveFieldConfigs'),
   btnResetDefaultFields: document.getElementById('btnResetDefaultFields'),
-
-  // Subscriptions & Plans & Settings
-  settingTrialDays: document.getElementById('settingTrialDays'),
-  settingTrialEnabled: document.getElementById('settingTrialEnabled'),
-  btnSaveTrialSetting: document.getElementById('btnSaveTrialSetting'),
-  plansAdminContainer: document.getElementById('plansAdminContainer'),
-  btnSavePlans: document.getElementById('btnSavePlans'),
-  subsTableBody: document.getElementById('subsTableBody'),
-  subSearchInput: document.getElementById('subSearchInput'),
-  subStatusFilter: document.getElementById('subStatusFilter'),
-  btnRefreshSubs: document.getElementById('btnRefreshSubs'),
 
   // Security
   changePasswordForm: document.getElementById('changePasswordForm'),
@@ -173,9 +157,7 @@ async function initDashboard() {
   await Promise.all([
     loadStats(),
     loadCardLogs(),
-    loadFieldConfigs(),
-    loadSubscriptions(),
-    loadAdminSettings()
+    loadFieldConfigs()
   ]);
 }
 
@@ -191,10 +173,7 @@ el.tabLinks.forEach((btn) => {
     if (targetPanel) targetPanel.classList.add('active');
 
     if (targetId === 'tabCardLogs') loadCardLogs();
-    if (targetId === 'tabSubscriptions') {
-      loadSubscriptions();
-      loadAdminSettings();
-    }
+
     if (targetId === 'tabOverview') loadStats();
     if (targetId === 'tabFieldConfig') loadFieldConfigs();
   });
@@ -204,8 +183,8 @@ el.btnJumpFields?.addEventListener('click', () => {
   document.querySelector('[data-tab="tabFieldConfig"]')?.click();
 });
 
-el.btnJumpSubs?.addEventListener('click', () => {
-  document.querySelector('[data-tab="tabSubscriptions"]')?.click();
+el.btnJumpLogs?.addEventListener('click', () => {
+  document.querySelector('[data-tab="tabCardLogs"]')?.click();
 });
 
 // ==========================================
@@ -215,11 +194,10 @@ async function loadStats() {
   try {
     const data = await authFetch(`${API_BASE}/admin/stats`);
     if (data.success && data.stats) {
-      el.statTotalCards.textContent = Number(data.stats.totalCards || 0).toLocaleString();
-      el.statTodayCards.textContent = Number(data.stats.todayCards || 0).toLocaleString();
-      el.statTotalUsers.textContent = Number(data.stats.totalUsers || 0).toLocaleString();
-      el.statActiveTrials.textContent = Number(data.stats.activeTrials || 0).toLocaleString();
-      el.statSubscribers.textContent = Number(data.stats.activeSubscribers || 0).toLocaleString();
+      if (el.statTotalCards) el.statTotalCards.textContent = Number(data.stats.totalCards || 0).toLocaleString();
+      if (el.statTodayCards) el.statTodayCards.textContent = Number(data.stats.todayCards || 0).toLocaleString();
+      if (el.statActiveFields) el.statActiveFields.textContent = Number(data.stats.activeFields || 0).toLocaleString();
+      if (el.statTotalFields) el.statTotalFields.textContent = Number(data.stats.totalFields || 14).toLocaleString();
     }
   } catch (err) {
     console.error('Stats error:', err);
@@ -582,294 +560,7 @@ el.btnResetDefaultFields.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 4. SUBSCRIPTIONS, TRIAL DAYS & PLANS MANAGEMENT
-// ==========================================
-
-// 4A. Load Trial Settings & Plans
-async function loadAdminSettings() {
-  try {
-    const data = await authFetch(`${API_BASE}/admin/settings`);
-    if (data.success) {
-      state.trialDays = data.trialDays;
-      state.trialEnabled = data.trialEnabled;
-      state.plans = data.plans || [];
-
-      if (el.settingTrialDays) el.settingTrialDays.value = data.trialDays;
-      if (el.settingTrialEnabled) el.settingTrialEnabled.checked = data.trialEnabled;
-
-      renderAdminPlans(state.plans);
-    }
-  } catch (err) {
-    console.error('Load admin settings error:', err);
-  }
-}
-
-// 4B. Render Editable Plan Cards
-function renderAdminPlans(plans) {
-  if (!el.plansAdminContainer) return;
-  if (!plans || plans.length === 0) {
-    el.plansAdminContainer.innerHTML = `<p style="color:var(--text-muted); padding:20px;">कोई प्लान उपलब्ध नहीं है।</p>`;
-    return;
-  }
-
-  el.plansAdminContainer.innerHTML = plans.map(p => {
-    const isPopular = p.plan_key === 'yearly' || (p.badge_text && p.badge_text.includes('लोकप्रिय'));
-    return `
-      <div class="plan-admin-card ${isPopular ? 'featured-card' : ''}" data-key="${p.plan_key}">
-        <div class="plan-admin-header">
-          <span class="plan-admin-badge">${escapeHtml(p.plan_key)}</span>
-          <span style="font-size:0.85rem; font-weight:700; color:var(--primary);">${escapeHtml(p.name_hi || '')}</span>
-        </div>
-
-        <div class="plan-edit-row">
-          <label>प्लान नाम (Hindi Name)</label>
-          <input type="text" class="plan-input-name-hi" value="${escapeHtml(p.name_hi || '')}">
-        </div>
-
-        <div class="plan-edit-row">
-          <label>अंग्रेजी नाम (English Name)</label>
-          <input type="text" class="plan-input-name-en" value="${escapeHtml(p.name_en || '')}">
-        </div>
-
-        <div class="plan-price-duration-flex">
-          <div class="plan-edit-row">
-            <label>मूल्य (Price in ₹)</label>
-            <input type="number" class="plan-input-price" value="${Number(p.price || 0)}" min="0">
-          </div>
-          <div class="plan-edit-row">
-            <label>वैधता (Validity Days)</label>
-            <input type="number" class="plan-input-days" value="${Number(p.duration_days || 30)}" min="1">
-          </div>
-        </div>
-
-        <div class="plan-edit-row">
-          <label>अवधि लेबल (e.g. प्रति महीना / पूरे 1 वर्ष हेतु)</label>
-          <input type="text" class="plan-input-period" value="${escapeHtml(p.period_label || '')}">
-        </div>
-
-        <div class="plan-edit-row">
-          <label>बैज टेक्स्ट (Badge, e.g. Best Value)</label>
-          <input type="text" class="plan-input-badge" value="${escapeHtml(p.badge_text || '')}">
-        </div>
-
-        <div class="plan-toggle-row">
-          <span>सक्रिय रखें (Active)</span>
-          <label class="switch">
-            <input type="checkbox" class="plan-input-active" ${p.is_active ? 'checked' : ''}>
-            <span class="slider"></span>
-          </label>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-// 4C. Save Trial Days Settings
-el.btnSaveTrialSetting?.addEventListener('click', async () => {
-  const trialDays = parseInt(el.settingTrialDays.value, 10) || 7;
-  const trialEnabled = el.settingTrialEnabled.checked;
-
-  try {
-    el.btnSaveTrialSetting.disabled = true;
-    el.btnSaveTrialSetting.textContent = 'सहेजा जा रहा है...';
-
-    const res = await authFetch(`${API_BASE}/admin/settings/trial`, {
-      method: 'PUT',
-      body: JSON.stringify({ trialDays, trialEnabled })
-    });
-
-    if (res.success) {
-      showToast(res.message || 'ट्रायल सेटिंग्स सुरक्षित कर ली गईं!');
-      loadSubscriptions();
-      loadStats();
-    } else {
-      showToast(res.error || 'सहेजने में त्रुटि', false);
-    }
-  } catch (err) {
-    showToast('ट्रायल सेटिंग्स अपडेट विफल', false);
-  } finally {
-    el.btnSaveTrialSetting.disabled = false;
-    el.btnSaveTrialSetting.textContent = '💾 ट्रायल सेटिंग्स सहेजें';
-  }
-});
-
-// 4D. Save Subscription Plans
-el.btnSavePlans?.addEventListener('click', async () => {
-  const cards = el.plansAdminContainer.querySelectorAll('.plan-admin-card');
-  const updatedPlans = [];
-
-  cards.forEach(card => {
-    const plan_key = card.dataset.key;
-    const existing = state.plans.find(p => p.plan_key === plan_key) || {};
-    
-    updatedPlans.push({
-      plan_key,
-      name_hi: card.querySelector('.plan-input-name-hi')?.value.trim() || existing.name_hi,
-      name_en: card.querySelector('.plan-input-name-en')?.value.trim() || existing.name_en,
-      price: Number(card.querySelector('.plan-input-price')?.value) || 0,
-      duration_days: Number(card.querySelector('.plan-input-days')?.value) || 30,
-      period_label: card.querySelector('.plan-input-period')?.value.trim() || '',
-      badge_text: card.querySelector('.plan-input-badge')?.value.trim() || '',
-      features: existing.features || [],
-      is_active: card.querySelector('.plan-input-active')?.checked ? 1 : 0,
-      display_order: existing.display_order || 1
-    });
-  });
-
-  try {
-    el.btnSavePlans.disabled = true;
-    el.btnSavePlans.textContent = 'सहेजा जा रहा है...';
-
-    const res = await authFetch(`${API_BASE}/admin/plans`, {
-      method: 'PUT',
-      body: JSON.stringify({ plans: updatedPlans })
-    });
-
-    if (res.success) {
-      state.plans = res.plans || updatedPlans;
-      showToast(res.message || 'सभी प्लान्स सफलतापूर्वक सहेज लिए गए!');
-      renderAdminPlans(state.plans);
-    } else {
-      showToast(res.error || 'प्लान्स सहेजने में त्रुटि', false);
-    }
-  } catch (err) {
-    showToast('प्लान्स अपडेट विफल', false);
-  } finally {
-    el.btnSavePlans.disabled = false;
-    el.btnSavePlans.textContent = '💾 सभी प्लान्स सहेजें (Save All Plans)';
-  }
-});
-
-// 4E. Registered Users Table & Status
-async function loadSubscriptions() {
-  try {
-    const data = await authFetch(`${API_BASE}/admin/subscriptions`);
-    if (data.success) {
-      state.subscriptions = data.subscriptions || data.users || [];
-      renderSubscriptionsTable(state.subscriptions);
-    }
-  } catch (err) {
-    console.error('Subscriptions error:', err);
-  }
-}
-
-function renderSubscriptionsTable(subs) {
-  const q = el.subSearchInput.value.trim().toLowerCase();
-  const activePill = el.subStatusFilter.querySelector('.filter-pill.active')?.dataset.status || 'all';
-
-  let filtered = subs;
-  if (q) {
-    filtered = filtered.filter(s =>
-      (s.phone && s.phone.includes(q)) ||
-      (s.name && s.name.toLowerCase().includes(q))
-    );
-  }
-  if (activePill !== 'all') {
-    filtered = filtered.filter(s => s.status === activePill);
-  }
-
-  if (filtered.length === 0) {
-    el.subsTableBody.innerHTML = `
-      <tr>
-        <td colspan="8" style="text-align: center; padding: 32px; color: var(--text-muted);">
-          कोई उपयोगकर्ता / सब्सक्रिप्शन रिकॉर्ड नहीं मिला।
-        </td>
-      </tr>
-    `;
-    return;
-  }
-
-  el.subsTableBody.innerHTML = filtered.map(s => {
-    let statusBadge = '';
-    if (s.status === 'active') {
-      statusBadge = `<span class="badge-status active">👑 प्रीमियम सक्रिय</span>`;
-    } else if (s.status === 'trial') {
-      statusBadge = `<span class="badge-status trial">⏳ ट्रायल सक्रिय</span>`;
-    } else if (s.status === 'expired') {
-      statusBadge = `<span class="badge-status expired">⚠️ समाप्त (Expired)</span>`;
-    } else {
-      statusBadge = `<span class="badge-status blocked">🚫 ब्लॉक</span>`;
-    }
-
-    const trialStart = s.trialStartedAt ? new Date(s.trialStartedAt).toLocaleDateString('hi-IN') : 'N/A';
-    const trialExp = s.trialExpiresAt ? new Date(s.trialExpiresAt).toLocaleDateString('hi-IN') : 'N/A';
-
-    return `
-      <tr>
-        <td>
-          <strong>📱 ${escapeHtml(s.phone)}</strong>
-          ${s.name ? `<div style="font-size:0.8rem; color:var(--text-muted); font-weight:600;">${escapeHtml(s.name)}</div>` : ''}
-        </td>
-        <td>${statusBadge}</td>
-        <td><span style="font-weight: 700; text-transform: capitalize;">${escapeHtml(s.planName || 'Free Trial')}</span></td>
-        <td>${trialStart}</td>
-        <td>${trialExp}</td>
-        <td>
-          <strong style="color: ${s.isSubscribed || s.daysRemaining > 0 ? '#15803d' : '#dc2626'}; font-size: 0.95rem;">
-            ${s.isSubscribed ? 'असीमित' : `${s.daysRemaining} दिन`}
-          </strong>
-        </td>
-        <td><span style="font-weight: 700;">${s.totalCardsCreated || 0}</span></td>
-        <td>
-          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-            <button type="button" class="btn-action-extend" onclick="window.updateSubStatus('${s.phone}', 'extend_trial')">
-              +7 दिन बढ़ाएं
-            </button>
-            <button type="button" class="btn-action-premium" onclick="window.updateSubStatus('${s.phone}', 'activate_premium')">
-              👑 प्रीमियम दें
-            </button>
-            ${s.status === 'blocked' ? `
-              <button type="button" style="background:#f1f5f9; border:1px solid #cbd5e1; padding:4px 8px; font-size:0.72rem; border-radius:4px; cursor:pointer;" onclick="window.updateSubStatus('${s.phone}', 'unblock')">
-                अनब्लॉक
-              </button>
-            ` : `
-              <button type="button" style="background:#fee2e2; border:1px solid #fca5a5; color:#991b1b; padding:4px 8px; font-size:0.72rem; border-radius:4px; cursor:pointer;" onclick="window.updateSubStatus('${s.phone}', 'block')">
-                ब्लॉक
-              </button>
-            `}
-          </div>
-        </td>
-      </tr>
-    `;
-  }).join('');
-}
-
-window.updateSubStatus = async function(phone, action) {
-  try {
-    const res = await authFetch(`${API_BASE}/admin/subscriptions/update`, {
-      method: 'POST',
-      body: JSON.stringify({ phone, action })
-    });
-
-    if (res.success) {
-      showToast(res.message || 'सफलतापूर्वक अपडेट किया गया!');
-      loadSubscriptions();
-      loadStats();
-    } else {
-      showToast(res.error || 'त्रुटि हुई', false);
-    }
-  } catch (err) {
-    showToast('कार्रवाई विफल रही', false);
-  }
-};
-
-el.subSearchInput.addEventListener('input', () => renderSubscriptionsTable(state.subscriptions));
-el.subStatusFilter.querySelectorAll('.filter-pill').forEach(pill => {
-  pill.addEventListener('click', () => {
-    el.subStatusFilter.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
-    pill.classList.add('active');
-    renderSubscriptionsTable(state.subscriptions);
-  });
-});
-el.btnRefreshSubs?.addEventListener('click', () => {
-  loadSubscriptions();
-  loadAdminSettings();
-  showToast('सब्सक्रिप्शन सूची एवं सेटिंग्स रीफ़्रेश हो गईं!');
-});
-
-
-// ==========================================
-// 5. SECURITY / CHANGE PASSWORD
+// 4. SECURITY / CHANGE PASSWORD
 // ==========================================
 el.changePasswordForm.addEventListener('submit', async (e) => {
   e.preventDefault();

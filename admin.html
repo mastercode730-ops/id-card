@@ -94,9 +94,7 @@
         <button type="button" class="tab-link" data-tab="tabFieldConfig">
           ⚙️ फ़ील्ड कॉन्फ़िगरेशन (Fields Manager)
         </button>
-        <button type="button" class="tab-link" data-tab="tabSubscriptions">
-          💳 ट्रायल एवं सब्सक्रिप्शन (Subscriptions)
-        </button>
+
         <button type="button" class="tab-link" data-tab="tabSecurity">
           🔐 सुरक्षा एवं पासवर्ड (Security)
         </button>
@@ -111,7 +109,7 @@
         <div class="section-title-bar">
           <div>
             <h2>सिस्टम ओवरव्यू एवं आंकड़े</h2>
-            <p>कार्ड जनरेशन, सक्रिय उपयोगकर्ता और 7-दिन फ्री ट्रायल स्थिति</p>
+            <p>कार्ड जनरेशन, सक्रिय डायनामिक फ़ील्ड्स और सिस्टम स्थिति</p>
           </div>
           <button type="button" class="btn-refresh" id="btnRefreshStats">
             🔄 आंकड़े रीफ़्रेश करें
@@ -139,29 +137,20 @@
           </div>
 
           <div class="stat-card">
-            <div class="stat-icon icon-blue">👥</div>
+            <div class="stat-icon icon-blue">⚙️</div>
             <div class="stat-content">
-              <span class="stat-label">कुल पंजीकृत मोबाइल नंबर</span>
-              <h3 class="stat-value" id="statTotalUsers">0</h3>
-              <span class="stat-sub">Unique Phone Registrations</span>
+              <span class="stat-label">सक्रिय फ़ॉर्म फ़ील्ड्स</span>
+              <h3 class="stat-value" id="statActiveFields">0</h3>
+              <span class="stat-sub">Active Dynamic Fields</span>
             </div>
           </div>
 
           <div class="stat-card">
-            <div class="stat-icon icon-purple">⏳</div>
+            <div class="stat-icon icon-purple">📝</div>
             <div class="stat-content">
-              <span class="stat-label">सक्रिय 7-दिन फ्री ट्रायल</span>
-              <h3 class="stat-value" id="statActiveTrials">0</h3>
-              <span class="stat-sub">In 7-Day Free Trial Window</span>
-            </div>
-          </div>
-
-          <div class="stat-card">
-            <div class="stat-icon icon-gold">👑</div>
-            <div class="stat-content">
-              <span class="stat-label">प्रीमियम सब्सक्राइबर्स</span>
-              <h3 class="stat-value" id="statSubscribers">0</h3>
-              <span class="stat-sub">Active Paid Subscriptions</span>
+              <span class="stat-label">कुल कॉन्फ़िगर फ़ील्ड्स</span>
+              <h3 class="stat-value" id="statTotalFields">14</h3>
+              <span class="stat-sub">Total Managed Fields</span>
             </div>
           </div>
         </div>
@@ -175,15 +164,15 @@
               फ़ील्ड सेटिंग्स बदलें →
             </button>
           </div>
-          <div class="banner-box banner-subs">
-            <h3>💳 7-दिन ट्रायल एवं सब्सक्रिप्शन</h3>
-            <p>यूजर के ट्रायल को 7 दिन और बढ़ाएं या सीधे प्रीमियम एक्सेस सक्रिय करें।</p>
-            <button type="button" class="btn-banner-action" id="btnJumpSubs">
-              सब्सक्रिप्शन प्रबंधित करें →
+          <div class="banner-box banner-logs">
+            <h3>📋 कार्ड निर्माण लॉग्स</h3>
+            <p>बनाए गए सभी पहचान पत्रों का विवरण, फ़ोटो, तारीख़ एवं ज़िला देखें।</p>
+            <button type="button" class="btn-banner-action" id="btnJumpLogs">
+              कार्ड लॉग्स देखें →
             </button>
           </div>
         </div>
-      </section>
+            </section>
 
       <!-- TAB 2: CARD GENERATION LOGS -->
       <section class="tab-content-panel" id="tabCardLogs">
@@ -279,111 +268,8 @@
         </div>
       </section>
 
-      <!-- TAB 4: SUBSCRIPTION & TRIAL MANAGEMENT -->
-      <section class="tab-content-panel" id="tabSubscriptions">
-        <div class="section-title-bar">
-          <div>
-            <h2>ट्रायल अवधि एवं सब्सक्रिप्शन प्लान्स प्रबंधन</h2>
-            <p>यहाँ से आप फ्री ट्रायल के दिन बदल सकते हैं, नए प्लान्स बना सकते हैं और उपयोगकर्ताओं की स्थिति नियंत्रित कर सकते हैं</p>
-          </div>
-          <button type="button" class="btn-refresh" id="btnRefreshSubs">
-            🔄 रीफ़्रेश सूची
-          </button>
-        </div>
-
-        <!-- 1. TRIAL DAYS & GLOBAL SETTINGS BOX -->
-        <div class="admin-settings-card">
-          <div class="card-header-flex">
-            <div>
-              <h3>⏳ डिफ़ॉल्ट फ्री ट्रायल अवधि (Free Trial Days Setting)</h3>
-              <p>नया यूजर रजिस्टर होते ही उसे इतने दिनों का फ्री ट्रायल स्वचालित रूप से मिलेगा</p>
-            </div>
-            <button type="button" class="btn-save-primary" id="btnSaveTrialSetting">
-              💾 ट्रायल सेटिंग्स सहेजें
-            </button>
-          </div>
-
-          <div class="trial-settings-form-row">
-            <div class="setting-input-wrap">
-              <label for="settingTrialDays">फ्री ट्रायल अवधि (दिनों में / In Days):</label>
-              <div class="input-with-unit">
-                <input type="number" id="settingTrialDays" min="1" max="365" value="7">
-                <span class="unit-text">दिन (Days)</span>
-              </div>
-            </div>
-
-            <div class="setting-switch-wrap">
-              <span class="switch-label">फ्री ट्रायल चालू रखें</span>
-              <label class="switch">
-                <input type="checkbox" id="settingTrialEnabled" checked>
-                <span class="slider"></span>
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <!-- 2. SUBSCRIPTION PRICING PLANS MANAGER BOX -->
-        <div class="admin-settings-card">
-          <div class="card-header-flex">
-            <div>
-              <h3>👑 सब्सक्रिप्शन प्लान्स एवं मूल्य (Subscription Plans & Pricing)</h3>
-              <p>उपयोगकर्ताओं को ट्रायल खत्म होने पर दिखाए जाने वाले प्लान्स, उनकी वैधता एवं कीमतें बदलें</p>
-            </div>
-            <button type="button" class="btn-save-primary" id="btnSavePlans">
-              💾 सभी प्लान्स सहेजें (Save All Plans)
-            </button>
-          </div>
-
-          <div class="plans-admin-grid" id="plansAdminContainer">
-            <!-- Dynamic Plan Cards injected by JS -->
-          </div>
-        </div>
-
-        <!-- 3. REGISTERED USERS & TRIAL STATUS TABLE -->
-        <div class="section-subtitle-bar">
-          <h3>👥 पंजीकृत उपयोगकर्ता एवं स्थिति (Registered Users & Status)</h3>
-          <span class="subtitle-hint">सभी रजिस्टर्ड उपयोगकर्ताओं की वर्तमान स्थिति एवं कार्ड्स की संख्या</span>
-        </div>
-
-        <!-- Subscriptions Search & Filter Toolbar -->
-        <div class="toolbar-box">
-          <div class="search-input-wrap">
-            <span class="search-icon">🔍</span>
-            <input type="text" id="subSearchInput" placeholder="फ़ोन नंबर द्वारा खोजें...">
-          </div>
-          <div class="status-filter-pills" id="subStatusFilter">
-            <button type="button" class="filter-pill active" data-status="all">सभी (All)</button>
-            <button type="button" class="filter-pill" data-status="trial">⏳ ट्रायल सक्रिय (Trial Active)</button>
-            <button type="button" class="filter-pill" data-status="expired">⚠️ ट्रायल समाप्त (Expired)</button>
-            <button type="button" class="filter-pill" data-status="active">👑 प्रीमियम (Subscribed)</button>
-          </div>
-        </div>
-
-        <!-- Subscriptions Table -->
-        <div class="table-responsive-container">
-          <table class="data-table" id="subsTable">
-            <thead>
-              <tr>
-                <th>मोबाइल नंबर</th>
-                <th>वर्तमान स्थिति</th>
-                <th>प्लान</th>
-                <th>ट्रायल शुरू</th>
-                <th>ट्रायल समाप्ति</th>
-                <th>शेष दिन</th>
-                <th>बनाए गए कार्ड</th>
-                <th>त्वरित कार्यवाही (Actions)</th>
-              </tr>
-            </thead>
-            <tbody id="subsTableBody">
-              <tr>
-                <td colspan="8" class="text-center py-6">सब्सक्रिप्शन लोड हो रहे हैं...</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- TAB 5: SECURITY & PASSWORD -->
+      <!-- TAB 4: SECURITY & PASSWORD -->
+      
       <section class="tab-content-panel" id="tabSecurity">
         <div class="section-title-bar">
           <div>
