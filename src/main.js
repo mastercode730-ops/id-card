@@ -502,6 +502,14 @@ function validateForm() {
     }
   }
 
+  // 14. Agree to party rules checkbox validation
+  const chkAgree = document.getElementById('chkAgreeRules');
+  if (chkAgree && !chkAgree.checked) {
+    markError('chkAgreeRules', 'कृपया पार्टी के नियमों एवं नीतियों का पालन करने की सहमति दें');
+  } else if (chkAgree) {
+    clearFieldError('chkAgreeRules');
+  }
+
   return { isValid, firstInvalidEl };
 }
 

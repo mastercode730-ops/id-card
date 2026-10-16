@@ -330,6 +330,14 @@ function populateDistrictFilters(logs = []) {
     allDistricts.map(d => `<option value="${escapeHtml(d)}" ${d === currentVal ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('');
 }
 
+let searchDebounceTimer = null;
+function debouncedLoadCardLogs() {
+  clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(() => {
+    loadCardLogs();
+  }, 250);
+}
+
 async function loadCardLogs() {
   try {
     const q = el.logSearchInput ? el.logSearchInput.value.trim() : '';
@@ -355,14 +363,21 @@ async function loadCardLogs() {
     }
 
     const data = await authFetch(`${API_BASE}/cards?${params.toString()}`);
-    if (data.success) {
+    if (data && data.success) {
       state.cardLogs = data.logs || [];
       renderCardLogsTable(state.cardLogs);
       populateDistrictFilters(state.cardLogs);
-      el.logsCountInfo.textContent = `${state.cardLogs.length} / ${data.total || state.cardLogs.length} आवेदन प्रदर्शित`;
+      if (el.logsCountInfo) {
+        el.logsCountInfo.textContent = `${state.cardLogs.length} / ${data.total || state.cardLogs.length} आवेदन प्रदर्शित`;
+      }
+    } else {
+      renderCardLogsTable([]);
+      if (el.logsCountInfo) el.logsCountInfo.textContent = `0 आवेदन प्रदर्शित`;
     }
   } catch (err) {
     console.error('Card logs error:', err);
+    renderCardLogsTable([]);
+    if (el.logsCountInfo) el.logsCountInfo.textContent = `लॉग्स लोड करने में त्रुटि`;
   }
 }
 
@@ -654,12 +669,12 @@ el.logStatusFilter?.querySelectorAll('.filter-pill').forEach(pill => {
 });
 
 // Search and filter listeners
-el.logSearchInput?.addEventListener('input', () => loadCardLogs());
+el.logSearchInput?.addEventListener('input', () => debouncedLoadCardLogs());
 el.logFilterDistrict?.addEventListener('change', () => loadCardLogs());
-el.logFilterConstituency?.addEventListener('input', () => loadCardLogs());
-el.logFilterCaste?.addEventListener('input', () => loadCardLogs());
-el.logFilterVillage?.addEventListener('input', () => loadCardLogs());
-el.logFilterDob?.addEventListener('input', () => loadCardLogs());
+el.logFilterConstituency?.addEventListener('input', () => debouncedLoadCardLogs());
+el.logFilterCaste?.addEventListener('input', () => debouncedLoadCardLogs());
+el.logFilterVillage?.addEventListener('input', () => debouncedLoadCardLogs());
+el.logFilterDob?.addEventListener('input', () => debouncedLoadCardLogs());
 el.logFilterDateFrom?.addEventListener('change', () => loadCardLogs());
 el.logFilterDateTo?.addEventListener('change', () => loadCardLogs());
 

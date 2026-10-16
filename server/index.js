@@ -440,7 +440,7 @@ app.post('/api/cards', optionalUserAuth, async (req, res) => {
 // Admin: Get all card logs with advanced filters (caste, village, district, constituency, dates)
 app.get('/api/cards', authenticateAdmin, async (req, res) => {
   try {
-    const { q, state, district, constituency, caste, village, dateFrom, dateTo, status, limit = 200, offset = 0 } = req.query;
+    const { q, state, district, constituency, caste, village, dob, dateFrom, dateTo, status, limit = 200, offset = 0 } = req.query;
 
     let sql = `SELECT * FROM card_logs WHERE 1=1`;
     const params = [];
