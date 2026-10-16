@@ -519,6 +519,31 @@
     </div>
   </div>
 
+  <!-- 3. ADMIN DELETE CONFIRMATION POPUP MODAL -->
+  <div class="admin-modal-overlay" id="adminDeleteConfirmModal">
+    <div class="admin-modal-card delete-modal-card">
+      <div class="delete-icon-circle">🗑️</div>
+      <div class="delete-modal-content">
+        <h3 class="delete-modal-title">सदस्यता आवेदन हटाएं?</h3>
+        <p class="delete-warning-text">क्या आप वाकई इस सदस्यता आवेदन और कार्ड रिकॉर्ड को हमेशा के लिए हटाना चाहते हैं? यह कार्यवाही वापस नहीं ली जा सकती।</p>
+        
+        <div class="delete-member-preview">
+          <img id="deleteMemberThumb" src="/assets/sample_member_photo.jpg" alt="Member" class="delete-member-avatar" onerror="this.src='/assets/sample_member_photo.jpg'">
+          <div class="delete-member-details">
+            <h4 id="deleteMemberName">सदस्य नाम</h4>
+            <div id="deleteMemberMeta" class="delete-meta-text">📱 मोबाइल • ज़िला</div>
+            <span class="delete-id-badge" id="deleteMemberId">#0</span>
+          </div>
+        </div>
+
+        <div class="delete-modal-actions">
+          <button type="button" class="btn-delete-cancel" id="btnCancelDelete">रद्द करें (Cancel)</button>
+          <button type="button" class="btn-delete-confirm" id="btnConfirmDelete">हाँ, हमेशा के लिए हटाएं (Delete)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- TOAST NOTIFICATION -->
   <div class="admin-toast" id="adminToast">
     <span id="adminToastMsg">सफलतापूर्वक अपडेट किया गया!</span>

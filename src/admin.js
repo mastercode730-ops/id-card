@@ -110,6 +110,15 @@ const el = {
   editStatus: document.getElementById('editStatus'),
   btnSubmitEditCard: document.getElementById('btnSubmitEditCard'),
 
+  // Admin Delete Confirmation Modal
+  adminDeleteConfirmModal: document.getElementById('adminDeleteConfirmModal'),
+  deleteMemberThumb: document.getElementById('deleteMemberThumb'),
+  deleteMemberName: document.getElementById('deleteMemberName'),
+  deleteMemberMeta: document.getElementById('deleteMemberMeta'),
+  deleteMemberId: document.getElementById('deleteMemberId'),
+  btnCancelDelete: document.getElementById('btnCancelDelete'),
+  btnConfirmDelete: document.getElementById('btnConfirmDelete'),
+
   // Toast
   adminToast: document.getElementById('adminToast'),
   adminToastMsg: document.getElementById('adminToastMsg')
@@ -349,14 +358,14 @@ function renderCardLogsTable(logs) {
         <td>${statusBadge}</td>
         <td style="white-space: nowrap;">${formattedDate}</td>
         <td>
-          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-            <button type="button" class="btn-side-download" style="padding: 5px 9px; font-size: 0.78rem;" onclick="window.generateAdminCard(${log.id})">
+          <div class="table-actions-group">
+            <button type="button" class="btn-action-generate" title="पहचान पत्र बनाएं" onclick="window.generateAdminCard(${log.id})">
               🪪 कार्ड बनाएं
             </button>
-            <button type="button" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 5px 9px; border-radius: 6px; font-weight: 700; font-size: 0.78rem; cursor: pointer;" onclick="window.editCardLog(${log.id})">
+            <button type="button" class="btn-action-edit" title="विवरण संपादित करें" onclick="window.editCardLog(${log.id})">
               ✏️ एडिट
             </button>
-            <button type="button" class="btn-action-delete" title="हटाएं" onclick="window.deleteCardLog(${log.id})">
+            <button type="button" class="btn-action-delete" title="आवेदन हटाएं" onclick="window.promptDeleteCardLog(${log.id})">
               🗑️
             </button>
           </div>
@@ -460,13 +469,13 @@ window.generateAdminCard = async function(id) {
   const locDetail = locArr.length > 0 ? locArr.join(' • ') : '';
 
   el.genApplicantMetaBar.innerHTML = `
-    <img src="${log.photo_url || '/assets/sample_member_photo.jpg'}" style="width: 55px; height: 65px; border-radius: 8px; object-fit: cover; border: 2px solid var(--gold);" onerror="this.src='/assets/sample_member_photo.jpg'">
-    <div style="flex: 1;">
-      <div style="font-size: 1.15rem; font-weight: 800; color: var(--primary);">${escapeHtml(log.name)}</div>
-      <div style="font-size: 0.84rem; color: #475569;">
+    <img src="${log.photo_url || '/assets/sample_member_photo.jpg'}" alt="Member" class="meta-avatar-thumb" onerror="this.src='/assets/sample_member_photo.jpg'">
+    <div class="meta-details-wrap">
+      <div class="meta-name-title">${escapeHtml(log.name)}</div>
+      <div class="meta-sub-info">
         पिता: <strong>${escapeHtml(log.father_name || '-')}</strong> • मोबाइल: <strong>${escapeHtml(log.mobile || '-')}</strong> • ज़िला: <strong>${escapeHtml(log.district || '-')}</strong>
       </div>
-      ${locDetail ? `<div style="font-size: 0.8rem; color: #15803d; font-weight: 600;">${escapeHtml(locDetail)}</div>` : ''}
+      ${locDetail ? `<div class="meta-loc-tag">📍 ${escapeHtml(locDetail)}</div>` : ''}
     </div>
     <div>
       <span class="${log.status === 'generated' ? 'status-badge-generated' : 'status-badge-pending'}" id="genStatusBadge">
@@ -766,24 +775,79 @@ el.adminEditMemberForm.addEventListener('submit', async (e) => {
   }
 });
 
-// Delete Card Log
-window.deleteCardLog = async function(id) {
-  if (!confirm('क्या आप वाकई इस सदस्यता आवेदन रिकॉर्ड को हटाना चाहते हैं?')) return;
+// ==========================================
+// 2D. ADMIN DELETE CONFIRMATION POPUP
+// ==========================================
+let pendingDeleteId = null;
 
-  try {
-    const res = await authFetch(`${API_BASE}/cards/${id}`, { method: 'DELETE' });
-    if (res.success) {
-      state.cardLogs = state.cardLogs.filter(l => l.id !== id);
-      renderCardLogsTable(state.cardLogs);
-      loadStats();
-      showToast('✓ रिकॉर्ड सफलतापूर्वक हटा दिया गया!');
-    } else {
-      showToast(res.error || 'हटाने में त्रुटि', false);
-    }
-  } catch (err) {
-    showToast('हटाने में त्रुटि हुई', false);
+window.promptDeleteCardLog = function(id) {
+  const log = state.cardLogs.find(l => l.id === id);
+  if (!log) return;
+
+  pendingDeleteId = id;
+  if (el.deleteMemberName) el.deleteMemberName.textContent = log.name || 'सदस्य';
+  if (el.deleteMemberMeta) {
+    const locArr = [];
+    if (log.district) locArr.push(log.district);
+    if (log.state) locArr.push(log.state);
+    const locStr = locArr.join(', ') || 'हरियाणा';
+    el.deleteMemberMeta.textContent = `📱 ${log.mobile || '-'} • ${locStr}`;
   }
+  if (el.deleteMemberId) el.deleteMemberId.textContent = `#${log.id}`;
+  if (el.deleteMemberThumb) {
+    el.deleteMemberThumb.src = log.photo_url || '/assets/sample_member_photo.jpg';
+  }
+
+  el.adminDeleteConfirmModal.classList.add('active');
 };
+
+// Close Delete Modal
+if (el.btnCancelDelete) {
+  el.btnCancelDelete.addEventListener('click', () => {
+    pendingDeleteId = null;
+    el.adminDeleteConfirmModal.classList.remove('active');
+  });
+}
+if (el.adminDeleteConfirmModal) {
+  el.adminDeleteConfirmModal.addEventListener('click', (e) => {
+    if (e.target === el.adminDeleteConfirmModal) {
+      pendingDeleteId = null;
+      el.adminDeleteConfirmModal.classList.remove('active');
+    }
+  });
+}
+
+// Confirm Delete Button Handler
+if (el.btnConfirmDelete) {
+  el.btnConfirmDelete.addEventListener('click', async () => {
+    if (!pendingDeleteId) return;
+
+    el.btnConfirmDelete.disabled = true;
+    el.btnConfirmDelete.textContent = 'हटाया जा रहा है...';
+
+    try {
+      const res = await authFetch(`${API_BASE}/cards/${pendingDeleteId}`, { method: 'DELETE' });
+      if (res.success) {
+        state.cardLogs = state.cardLogs.filter(l => l.id !== pendingDeleteId);
+        renderCardLogsTable(state.cardLogs);
+        loadStats();
+        showToast('✓ सदस्यता आवेदन रिकॉर्ड हमेशा के लिए हटा दिया गया!');
+        el.adminDeleteConfirmModal.classList.remove('active');
+      } else {
+        showToast(res.error || 'हटाने में त्रुटि', false);
+      }
+    } catch (err) {
+      showToast('हटाने में त्रुटि हुई', false);
+    } finally {
+      pendingDeleteId = null;
+      el.btnConfirmDelete.disabled = false;
+      el.btnConfirmDelete.textContent = 'हाँ, हमेशा के लिए हटाएं (Delete)';
+    }
+  });
+}
+
+// Backward-compatible alias
+window.deleteCardLog = window.promptDeleteCardLog;
 
 // ==========================================
 // 3. FIELD CONFIGURATION
@@ -808,29 +872,35 @@ function renderFieldsList(fields) {
   }
 
   el.fieldsListContainer.innerHTML = fields.map((f) => {
+    const isEnabled = Boolean(f.is_enabled);
     return `
-      <div class="field-config-card" data-key="${f.field_key}">
+      <div class="field-config-card ${isEnabled ? '' : 'is-disabled'}" data-key="${f.field_key}">
         <div class="field-card-header">
-          <div>
+          <div class="field-meta-left">
             <span class="field-key-badge">${escapeHtml(f.field_key)}</span>
-            <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 2px;">प्रकार: <strong>${escapeHtml(f.field_type)}</strong></div>
+            <span class="field-type-tag">प्रकार: <strong>${escapeHtml(f.field_type)}</strong></span>
           </div>
           <div class="field-switches">
-            <label class="switch" title="सक्षम / अक्षम">
-              <input type="checkbox" class="toggle-enabled" ${f.is_enabled ? 'checked' : ''}>
+            <span class="field-switch-status" id="status-text-${f.field_key}">
+              ${isEnabled ? 'सक्रिय' : 'बंद'}
+            </span>
+            <label class="switch" title="फ़ील्ड चालू / बंद करें">
+              <input type="checkbox" class="toggle-enabled" ${isEnabled ? 'checked' : ''} onchange="this.closest('.field-config-card').classList.toggle('is-disabled', !this.checked); const st = document.getElementById('status-text-${f.field_key}'); if(st) st.textContent = this.checked ? 'सक्रिय' : 'बंद';">
               <span class="slider"></span>
             </label>
           </div>
         </div>
 
-        <div class="field-form-row">
-          <label>हिंदी लेबल (Display Label)</label>
-          <input type="text" class="input-label-hi" value="${escapeHtml(f.label_hi)}">
-        </div>
+        <div class="field-inputs-grid">
+          <div class="field-form-row">
+            <label>हिंदी लेबल (Display Label)</label>
+            <input type="text" class="input-label-hi" value="${escapeHtml(f.label_hi)}">
+          </div>
 
-        <div class="field-form-row">
-          <label>अंग्रेजी लेबल (English Label)</label>
-          <input type="text" class="input-label-en" value="${escapeHtml(f.label_en)}">
+          <div class="field-form-row">
+            <label>अंग्रेजी लेबल (English Label)</label>
+            <input type="text" class="input-label-en" value="${escapeHtml(f.label_en)}">
+          </div>
         </div>
 
         <div class="field-bottom-toggles">
