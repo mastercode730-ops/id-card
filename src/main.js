@@ -794,142 +794,159 @@ function setupEventListeners() {
     }
   }
 
-  // Front / Back / Both Tabs
-  elements.tabBoth.addEventListener('click', () => setActiveTab('both'));
-  elements.tabFront.addEventListener('click', () => setActiveTab('front'));
-  elements.tabBack.addEventListener('click', () => setActiveTab('back'));
+  // Front / Back / Both Tabs & Canvas Download listeners (if preview section present)
+  if (elements.tabBoth) {
+    elements.tabBoth.addEventListener('click', () => setActiveTab('both'));
+    elements.tabFront.addEventListener('click', () => setActiveTab('front'));
+    elements.tabBack.addEventListener('click', () => setActiveTab('back'));
 
-  // Back to form button
-  elements.btnBackToForm.addEventListener('click', () => {
-    elements.formWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
-
-  // Download Both Sides as HD PNG
-  elements.btnDownloadBoth.addEventListener('click', () => {
-    const name = (elements.inputName.value.trim() || 'INLD_Member').replace(/\s+/g, '_');
-    downloadCanvasImage(elements.canvasFront, `${name}_INLD_Front_Card.png`);
-    setTimeout(() => {
-      downloadCanvasImage(elements.canvasBack, `${name}_INLD_Back_Card.png`);
-      showToast('✨ दोनों साइड (Front & Back) HD PNG डाउनलोड हो गए!');
-    }, 350);
-  });
-
-  // Download Front Side PNG
-  elements.btnDownloadFrontQuick.addEventListener('click', () => {
-    const name = (elements.inputName.value.trim() || 'INLD_Member').replace(/\s+/g, '_');
-    downloadCanvasImage(elements.canvasFront, `${name}_INLD_Front_Card.png`);
-    showToast('📥 सामने का भाग (Front Side) डाउनलोड हो गया!');
-  });
-
-  // Download Back Side PNG
-  elements.btnDownloadBackQuick.addEventListener('click', () => {
-    const name = (elements.inputName.value.trim() || 'INLD_Member').replace(/\s+/g, '_');
-    downloadCanvasImage(elements.canvasBack, `${name}_INLD_Back_Card.png`);
-    showToast('📥 पीछे का भाग (Back Side) डाउनलोड हो गया!');
-  });
-
-  // Download 2-Page Full PDF (Front + Back)
-  elements.btnDownloadPdf.addEventListener('click', async () => {
-    try {
-      showToast('📄 2-पेज सम्पूर्ण PDF तैयार हो रहा है...');
-      const name = (elements.inputName.value.trim() || 'INLD_Member').replace(/\s+/g, '_');
-
-      const pdf = new jsPDF({
-        orientation: 'landscape',
-        unit: 'mm',
-        format: [140, 93.3] // Standard Card Proportion in mm
+    if (elements.btnBackToForm) {
+      elements.btnBackToForm.addEventListener('click', () => {
+        elements.formWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
-
-      // Page 1: Front
-      const frontData = elements.canvasFront.toDataURL('image/jpeg', 0.98);
-      pdf.addImage(frontData, 'JPEG', 0, 0, 140, 93.3);
-
-      // Page 2: Back
-      pdf.addPage([140, 93.3], 'landscape');
-      const backData = elements.canvasBack.toDataURL('image/jpeg', 0.98);
-      pdf.addImage(backData, 'JPEG', 0, 0, 140, 93.3);
-
-      pdf.save(`${name}_INLD_Full_ID_Card.pdf`);
-      showToast('✓ 2-पेज सम्पूर्ण PDF (Front + Back) डाउनलोड हो गया!');
-    } catch (err) {
-      console.error('PDF error:', err);
-      showToast('PDF बनाने में त्रुटि हुई', false);
     }
-  });
 
-  // Print Card
-  elements.btnPrintCard.addEventListener('click', () => {
-    window.print();
-  });
-
-  // Copy Image to Clipboard
-  elements.btnCopyImage.addEventListener('click', async () => {
-    try {
-      const targetCanvas = state.activeTab === 'back' ? elements.canvasBack : elements.canvasFront;
-      targetCanvas.toBlob(async (blob) => {
-        if (!blob) return;
-        await navigator.clipboard.write([
-          new ClipboardItem({ 'image/png': blob })
-        ]);
-        showToast('📋 कार्ड इमेज क्लिपबोर्ड पर कॉपी हो गई!');
+    if (elements.btnDownloadBoth) {
+      elements.btnDownloadBoth.addEventListener('click', () => {
+        const name = (elements.inputName.value.trim() || 'INLD_Member').replace(/\s+/g, '_');
+        downloadCanvasImage(elements.canvasFront, `${name}_INLD_Front_Card.png`);
+        setTimeout(() => {
+          downloadCanvasImage(elements.canvasBack, `${name}_INLD_Back_Card.png`);
+          showToast('✨ दोनों साइड (Front & Back) HD PNG डाउनलोड हो गए!');
+        }, 350);
       });
-    } catch (err) {
-      console.warn('Clipboard error:', err);
-      showToast('इमेज कॉपी समर्थित नहीं है, कृपया डाउनलोड करें', false);
-    }
-  });
-
-  // WhatsApp Send
-  elements.btnShareWhatsapp.addEventListener('click', () => {
-    const waCountry = elements.selectWaCountry.value.replace('+', '');
-    let num = elements.whatsappNumber.value.trim().replace(/[^0-9]/g, '');
-
-    if (!num) {
-      showToast('कृपया WhatsApp नंबर दर्ज करें', false);
-      elements.whatsappNumber.focus();
-      return;
     }
 
-    const fullWaNumber = `${waCountry}${num}`;
-    const data = getFormData();
-    const msg = encodeURIComponent(
-      `🚩 *इंडियन नेशनल लोकदल (INLD)* 🚩\n` +
-      `*आधिकारिक सदस्यता पहचान पत्र (सम्पूर्ण - Front & Back)*\n\n` +
-      `👤 *नाम:* ${data.name}\n` +
-      `👨‍👦 *पिताजी का नाम:* ${data.father}\n` +
-      `📱 *मोबाइल:* ${data.mobile}\n` +
-      `🏛️ *राज्य:* ${data.state}\n` +
-      `📍 *ज़िला:* ${data.district}\n` +
-      `📍 *विधानसभा:* ${data.constituency}\n` +
-      `🎖️ *पद:* ${data.designation}\n` +
-      `🧬 *जाति:* ${data.caste}\n` +
-      `🆔 *सदस्यता क्रमांक:* ${data.membershipNo}\n\n` +
-      `_ताऊ देवी लाल अमर रहें • जय जवान जय किसान_`
-    );
-
-    window.open(`https://wa.me/${fullWaNumber}?text=${msg}`, '_blank');
-  });
-
-  // Side Zooms
-  elements.btnZoomFront.addEventListener('click', () => {
-    elements.modalImg.src = elements.canvasFront.toDataURL('image/png');
-    elements.zoomModal.classList.add('active');
-  });
-
-  elements.btnZoomBack.addEventListener('click', () => {
-    elements.modalImg.src = elements.canvasBack.toDataURL('image/png');
-    elements.zoomModal.classList.add('active');
-  });
-
-  elements.modalClose.addEventListener('click', () => {
-    elements.zoomModal.classList.remove('active');
-  });
-
-  elements.zoomModal.addEventListener('click', (e) => {
-    if (e.target === elements.zoomModal) {
-      elements.zoomModal.classList.remove('active');
+    if (elements.btnDownloadFrontQuick) {
+      elements.btnDownloadFrontQuick.addEventListener('click', () => {
+        const name = (elements.inputName.value.trim() || 'INLD_Member').replace(/\s+/g, '_');
+        downloadCanvasImage(elements.canvasFront, `${name}_INLD_Front_Card.png`);
+        showToast('📥 सामने का भाग (Front Side) डाउनलोड हो गया!');
+      });
     }
-  });
+
+    if (elements.btnDownloadBackQuick) {
+      elements.btnDownloadBackQuick.addEventListener('click', () => {
+        const name = (elements.inputName.value.trim() || 'INLD_Member').replace(/\s+/g, '_');
+        downloadCanvasImage(elements.canvasBack, `${name}_INLD_Back_Card.png`);
+        showToast('📥 पीछे का भाग (Back Side) डाउनलोड हो गया!');
+      });
+    }
+
+    if (elements.btnDownloadPdf) {
+      elements.btnDownloadPdf.addEventListener('click', async () => {
+        try {
+          showToast('📄 2-पेज सम्पूर्ण PDF तैयार हो रहा है...');
+          const name = (elements.inputName.value.trim() || 'INLD_Member').replace(/\s+/g, '_');
+
+          const pdf = new jsPDF({
+            orientation: 'landscape',
+            unit: 'mm',
+            format: [140, 93.3]
+          });
+
+          const frontData = elements.canvasFront.toDataURL('image/jpeg', 0.98);
+          pdf.addImage(frontData, 'JPEG', 0, 0, 140, 93.3);
+
+          pdf.addPage([140, 93.3], 'landscape');
+          const backData = elements.canvasBack.toDataURL('image/jpeg', 0.98);
+          pdf.addImage(backData, 'JPEG', 0, 0, 140, 93.3);
+
+          pdf.save(`${name}_INLD_Full_ID_Card.pdf`);
+          showToast('✓ 2-पेज सम्पूर्ण PDF (Front + Back) डाउनलोड हो गया!');
+        } catch (err) {
+          console.error('PDF error:', err);
+          showToast('PDF बनाने में त्रुटि हुई', false);
+        }
+      });
+    }
+
+    if (elements.btnPrintCard) {
+      elements.btnPrintCard.addEventListener('click', () => {
+        window.print();
+      });
+    }
+
+    if (elements.btnCopyImage) {
+      elements.btnCopyImage.addEventListener('click', async () => {
+        try {
+          const targetCanvas = state.activeTab === 'back' ? elements.canvasBack : elements.canvasFront;
+          targetCanvas.toBlob(async (blob) => {
+            if (!blob) return;
+            await navigator.clipboard.write([
+              new ClipboardItem({ 'image/png': blob })
+            ]);
+            showToast('📋 कार्ड इमेज क्लिपबोर्ड पर कॉपी हो गई!');
+          });
+        } catch (err) {
+          console.error('Copy error:', err);
+          showToast('इमेज कॉपी करने में असमर्थ', false);
+        }
+      });
+    }
+
+    // WhatsApp Send
+    if (elements.btnShareWhatsapp) {
+      elements.btnShareWhatsapp.addEventListener('click', () => {
+        const waCountry = elements.selectWaCountry ? elements.selectWaCountry.value.replace('+', '') : '91';
+        let num = elements.whatsappNumber ? elements.whatsappNumber.value.trim().replace(/[^0-9]/g, '') : '';
+
+        if (!num) {
+          showToast('कृपया WhatsApp नंबर दर्ज करें', false);
+          if (elements.whatsappNumber) elements.whatsappNumber.focus();
+          return;
+        }
+
+        const fullWaNumber = `${waCountry}${num}`;
+        const data = getFormData();
+        const msg = encodeURIComponent(
+          `🚩 *इंडियन नेशनल लोकदल (INLD)* 🚩\n` +
+          `*आधिकारिक सदस्यता पहचान पत्र (सम्पूर्ण - Front & Back)*\n\n` +
+          `👤 *नाम:* ${data.name}\n` +
+          `👨‍👦 *पिताजी का नाम:* ${data.father}\n` +
+          `📱 *मोबाइल:* ${data.mobile}\n` +
+          `🏛️ *राज्य:* ${data.state}\n` +
+          `📍 *ज़िला:* ${data.district}\n` +
+          `📍 *विधानसभा:* ${data.constituency}\n` +
+          `🎖️ *पद:* ${data.designation}\n` +
+          `🧬 *जाति:* ${data.caste}\n` +
+          `🆔 *सदस्यता क्रमांक:* ${data.membershipNo}\n\n` +
+          `_ताऊ देवी लाल अमर रहें • जय जवान जय किसान_`
+        );
+
+        window.open(`https://wa.me/${fullWaNumber}?text=${msg}`, '_blank');
+      });
+    }
+
+    // Side Zooms
+    if (elements.btnZoomFront && elements.modalImg) {
+      elements.btnZoomFront.addEventListener('click', () => {
+        elements.modalImg.src = elements.canvasFront.toDataURL('image/png');
+        if (elements.zoomModal) elements.zoomModal.classList.add('active');
+      });
+    }
+
+    if (elements.btnZoomBack && elements.modalImg) {
+      elements.btnZoomBack.addEventListener('click', () => {
+        elements.modalImg.src = elements.canvasBack.toDataURL('image/png');
+        if (elements.zoomModal) elements.zoomModal.classList.add('active');
+      });
+    }
+
+    if (elements.modalClose && elements.zoomModal) {
+      elements.modalClose.addEventListener('click', () => {
+        elements.zoomModal.classList.remove('active');
+      });
+    }
+
+    if (elements.zoomModal) {
+      elements.zoomModal.addEventListener('click', (e) => {
+        if (e.target === elements.zoomModal) {
+          elements.zoomModal.classList.remove('active');
+        }
+      });
+    }
+  }
 }
 
 document.addEventListener('DOMContentLoaded', init);
