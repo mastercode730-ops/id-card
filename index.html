@@ -134,12 +134,15 @@
           <div class="field-error" id="error-inputVillage"></div>
         </div>
 
-        <!-- Field 7: Constituency -->
+        <!-- Field 7: Constituency (Searchable 90 Haryana Constituencies) -->
         <div class="field-group" id="group-constituency">
           <label class="field-label" for="inputConstituency">
             विधानसभा क्षेत्र (Constituency) <span class="req-star">*</span>
           </label>
-          <input type="text" id="inputConstituency" placeholder="विधानसभा क्षेत्र">
+          <input type="text" id="inputConstituency" list="haryanaConstituenciesList" placeholder="विधानसभा खोजें या चुनें (Type or Select)..." autocomplete="off">
+          <datalist id="haryanaConstituenciesList">
+            <!-- Populated dynamically with all 90 constituencies -->
+          </datalist>
           <div class="field-error" id="error-inputConstituency"></div>
         </div>
 
@@ -150,6 +153,15 @@
           </label>
           <input type="text" id="inputConscode" placeholder="जैसे 45 या SRS">
           <div class="field-error" id="error-inputConscode"></div>
+        </div>
+
+        <!-- Field 8B: Aadhaar Number -->
+        <div class="field-group" id="group-aadhaar">
+          <label class="field-label" for="inputAadhaar">
+            आधार नंबर (Aadhaar No)
+          </label>
+          <input type="text" id="inputAadhaar" placeholder="12 अंकों का आधार कार्ड नंबर" maxlength="14">
+          <div class="field-error" id="error-inputAadhaar"></div>
         </div>
 
         <!-- Field 9: Designation -->
@@ -231,6 +243,13 @@
         <p class="success-message">
           आपकी जानकारी और फ़ोटो हमारे पास सुरक्षित जमा हो गई है। इंडियन नेशनल लोकदल (INLD) पार्टी प्रशासक द्वारा आपके विवरण का सत्यापन करने के पश्चात आपका आधिकारिक फ्रंट व बैक HD पहचान पत्र तैयार करके आपके WhatsApp नंबर पर भेज दिया जाएगा।
         </p>
+
+        <div class="success-wa-row" style="margin: 18px 0; text-align: center;">
+          <a id="btnSuccessWaLink" href="#" target="_blank" class="btn-success-wa" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #25d366; color: #ffffff; padding: 13px 26px; border-radius: 999px; font-weight: 700; font-size: 0.95rem; text-decoration: none; box-shadow: 0 4px 14px rgba(37,211,102,0.35); transition: transform 0.2s;">
+            📱 WhatsApp पर पुष्टि रसीद भेजें / देखें
+          </a>
+          <p style="font-size: 0.78rem; color: #64748b; margin-top: 6px;">(क्लिक करके अपने WhatsApp नंबर पर आवेदन विवरण व संदर्भ संख्या प्राप्त करें)</p>
+        </div>
 
         <div class="success-summary-box" id="successSummaryBox">
           <!-- Populated by JS -->

@@ -1,6 +1,7 @@
 import confetti from 'canvas-confetti';
 import { jsPDF } from 'jspdf';
 import { preloadAssets, renderFrontCard, renderBackCard } from './cardGenerator.js';
+import { HARYANA_CONSTITUENCIES } from './constituencies.js';
 
 // Supported Country Codes
 const COUNTRY_CODES = [
@@ -120,6 +121,7 @@ const elements = {
   inputVillage: document.getElementById('inputVillage'),
   inputConstituency: document.getElementById('inputConstituency'),
   inputConscode: document.getElementById('inputConscode'),
+  inputAadhaar: document.getElementById('inputAadhaar'),
   inputDesignation: document.getElementById('inputDesignation'),
   inputDob: document.getElementById('inputDob'),
   inputCaste: document.getElementById('inputCaste'),
@@ -204,6 +206,7 @@ function getFormData() {
     village: elements.inputVillage ? elements.inputVillage.value.trim() : '',
     constituency: elements.inputConstituency.value.trim(),
     conscode: elements.inputConscode ? elements.inputConscode.value.trim() : '',
+    aadhaarNo: elements.inputAadhaar ? elements.inputAadhaar.value.trim() : '',
     booth: elements.inputBooth.value.trim(),
     whatsappNumber: elements.whatsappNumber.value.trim(),
     whatsappCountryCode: elements.selectWaCountry.value,
@@ -272,6 +275,7 @@ const FIELD_GROUP_MAP = {
   inputVillage: 'group-village',
   inputConstituency: 'group-constituency',
   inputConscode: 'group-conscode',
+  inputAadhaar: 'group-aadhaar',
   inputDesignation: 'group-designation',
   inputDob: 'group-dob',
   inputCaste: 'group-caste',
@@ -578,6 +582,14 @@ async function init() {
     console.error('Assets loading error:', err);
   }
 
+  // Populate Haryana Constituencies Datalist with all 90 Constituencies
+  const constListEl = document.getElementById('haryanaConstituenciesList');
+  if (constListEl) {
+    constListEl.innerHTML = HARYANA_CONSTITUENCIES.map(
+      c => `<option value="${c.name}">${c.label}</option>`
+    ).join('');
+  }
+
   await loadAndApplyFieldConfigs();
   setupEventListeners();
 }
@@ -656,10 +668,22 @@ function setupEventListeners() {
     if (state.cardGenerated) updateCard();
   });
 
+  // Constituency auto-matching with AC code from Haryana Constituencies
+  elements.inputConstituency?.addEventListener('input', (e) => {
+    const val = e.target.value.trim().toLowerCase();
+    const match = HARYANA_CONSTITUENCIES.find(
+      c => c.name.toLowerCase() === val || c.code === val || c.hi.toLowerCase() === val || c.label.toLowerCase() === val
+    );
+    if (match && elements.inputConscode) {
+      elements.inputConscode.value = match.code;
+    }
+    clearFieldError('inputConstituency');
+  });
+
   // Clear errors on field input/change
   const textFields = [
     'inputName', 'inputFather', 'inputCity', 'inputVillage', 'inputConstituency', 'inputConscode',
-    'inputDesignation', 'inputCaste', 'inputBooth', 'selectDistrict'
+    'inputAadhaar', 'inputDesignation', 'inputCaste', 'inputBooth', 'selectDistrict'
   ];
   textFields.forEach((id) => {
     const el = document.getElementById(id);
@@ -730,7 +754,42 @@ function setupEventListeners() {
               ${cardData.city ? `<div class="summary-line"><span>शहर:</span> <strong>${cardData.city}</strong></div>` : ''}
               ${cardData.village ? `<div class="summary-line"><span>गांव:</span> <strong>${cardData.village}</strong></div>` : ''}
               <div class="summary-line"><span>विधानसभा क्षेत्र:</span> <strong>${cardData.constituency}</strong></div>
+              ${cardData.aadhaarNo ? `<div class="summary-line"><span>आधार नंबर:</span> <strong>${cardData.aadhaarNo}</strong></div>` : ''}
             `;
+          }
+
+          // Build pre-filled WhatsApp confirmation message
+          const waCountry = elements.selectWaCountry ? elements.selectWaCountry.value.replace('+', '') : '91';
+          const cleanWa = (cardData.whatsappNumber || cardData.mobile || '').replace(/[^0-9]/g, '');
+          const fullWa = cleanWa.length === 10 ? `${waCountry}${cleanWa}` : cleanWa;
+
+          const waMsg = encodeURIComponent(
+            `🚩 *इंडियन नेशनल लोकदल (INLD)* 🚩\n\n` +
+            `नमस्कार *${cardData.name}* जी,\n` +
+            `आपका सदस्यता आवेदन सफलतापूर्वक प्राप्त हो गया है!\n\n` +
+            `🆔 *आवेदन संदर्भ क्रमांक:* ${refNumber}\n` +
+            `👨‍👦 *पिता का नाम:* ${cardData.father || '-'}\n` +
+            `📱 *मोबाइल नंबर:* ${cardData.mobile}\n` +
+            `🏛️ *विधानसभा क्षेत्र:* ${cardData.constituency || '-'}\n` +
+            `📍 *ज़िला एवं राज्य:* ${cardData.district || '-'}, ${cardData.state || 'Haryana'}\n` +
+            (cardData.village ? `🏡 *गांव:* ${cardData.village}\n` : '') +
+            (cardData.city ? `🏙️ *शहर:* ${cardData.city}\n` : '') +
+            (cardData.aadhaarNo ? `🆔 *आधार नंबर:* ${cardData.aadhaarNo}\n` : '') +
+            `\nइनेलो पार्टी प्रशासक द्वारा सत्यापन के पश्चात आपका आधिकारिक सदस्यता पहचान पत्र जारी कर दिया जाएगा।\n\n` +
+            `_चौधरी देवी लाल अमर रहें • जय जवान जय किसान_`
+          );
+
+          const waUrl = `https://wa.me/${fullWa}?text=${waMsg}`;
+          const btnWa = document.getElementById('btnSuccessWaLink');
+          if (btnWa) {
+            btnWa.href = waUrl;
+          }
+
+          // Automatically trigger WhatsApp popup for user
+          try {
+            window.open(waUrl, '_blank');
+          } catch (err) {
+            console.warn('Popup blocked, available via button', err);
           }
 
           // Confetti celebration

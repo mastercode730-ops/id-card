@@ -393,14 +393,15 @@ app.post('/api/cards', optionalUserAuth, async (req, res) => {
     }
 
     const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+    const aadhaar = data.aadhaarNo || data.aadhaar_no || data.inputAadhaar || '';
 
     // Insert card log / request
     const result = await run(
       `INSERT INTO card_logs (
         user_id, membership_no, name, father_name, mobile, state, district,
         city, village, constituency, conscode, designation, dob, caste, booth,
-        whatsapp_number, photo_url, status, ip_address
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        whatsapp_number, photo_url, status, aadhaar_no, ip_address
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         user ? user.id : null,
         data.membershipNo || '',
@@ -420,6 +421,7 @@ app.post('/api/cards', optionalUserAuth, async (req, res) => {
         data.whatsappNumber || '',
         data.photoThumb || '',
         data.status || 'pending',
+        aadhaar,
         ipAddress
       ]
     );
@@ -435,10 +437,10 @@ app.post('/api/cards', optionalUserAuth, async (req, res) => {
   }
 });
 
-// Admin: Get all card logs
+// Admin: Get all card logs with advanced filters (caste, village, district, constituency, dates)
 app.get('/api/cards', authenticateAdmin, async (req, res) => {
   try {
-    const { q, state, district, status, limit = 100, offset = 0 } = req.query;
+    const { q, state, district, constituency, caste, village, dateFrom, dateTo, status, limit = 200, offset = 0 } = req.query;
 
     let sql = `SELECT * FROM card_logs WHERE 1=1`;
     const params = [];
@@ -449,9 +451,9 @@ app.get('/api/cards', authenticateAdmin, async (req, res) => {
     }
 
     if (q) {
-      sql += ` AND (name LIKE ? OR mobile LIKE ? OR father_name LIKE ? OR constituency LIKE ? OR caste LIKE ?)`;
+      sql += ` AND (name LIKE ? OR mobile LIKE ? OR father_name LIKE ? OR constituency LIKE ? OR caste LIKE ? OR village LIKE ? OR city LIKE ?)`;
       const searchParam = `%${q.trim()}%`;
-      params.push(searchParam, searchParam, searchParam, searchParam, searchParam);
+      params.push(searchParam, searchParam, searchParam, searchParam, searchParam, searchParam, searchParam);
     }
 
     if (state && state !== 'all') {
@@ -462,6 +464,36 @@ app.get('/api/cards', authenticateAdmin, async (req, res) => {
     if (district && district !== 'all') {
       sql += ` AND district = ?`;
       params.push(district);
+    }
+
+    if (constituency && constituency !== 'all') {
+      sql += ` AND constituency = ?`;
+      params.push(constituency);
+    }
+
+    if (caste && caste !== 'all') {
+      sql += ` AND caste = ?`;
+      params.push(caste);
+    }
+
+    if (village && village !== 'all') {
+      sql += ` AND (village LIKE ? OR city LIKE ?)`;
+      params.push(`%${village.trim()}%`, `%${village.trim()}%`);
+    }
+
+    if (dob) {
+      sql += ` AND dob LIKE ?`;
+      params.push(`%${dob.trim()}%`);
+    }
+
+    if (dateFrom) {
+      sql += ` AND created_at >= ?`;
+      params.push(`${dateFrom} 00:00:00`);
+    }
+
+    if (dateTo) {
+      sql += ` AND created_at <= ?`;
+      params.push(`${dateTo} 23:59:59`);
     }
 
     sql += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
@@ -499,7 +531,7 @@ app.put('/api/cards/:id', authenticateAdmin, async (req, res) => {
        SET name = ?, father_name = ?, mobile = ?, state = ?, district = ?,
            city = ?, village = ?, constituency = ?, conscode = ?,
            designation = ?, dob = ?, caste = ?, booth = ?,
-           whatsapp_number = ?, photo_url = ?, status = ?
+           whatsapp_number = ?, photo_url = ?, status = ?, aadhaar_no = ?
        WHERE id = ?`,
       [
         d.name !== undefined ? d.name : existing.name,
@@ -518,6 +550,7 @@ app.put('/api/cards/:id', authenticateAdmin, async (req, res) => {
         d.whatsapp_number !== undefined ? d.whatsapp_number : (d.whatsappNumber !== undefined ? d.whatsappNumber : existing.whatsapp_number),
         photoUrl,
         d.status !== undefined ? d.status : (existing.status || 'pending'),
+        d.aadhaar_no !== undefined ? d.aadhaar_no : (d.aadhaarNo !== undefined ? d.aadhaarNo : (existing.aadhaar_no || '')),
         id
       ]
     );
@@ -839,6 +872,41 @@ app.get('/api/config/fields', async (req, res) => {
   } catch (err) {
     console.error('Fetch fields error:', err);
     res.status(500).json({ success: false, error: 'फ़ील्ड कॉन्फ़िगरेशन लोड करने में त्रुटि।' });
+  }
+});
+
+// Admin: Add a new custom field dynamically
+app.post('/api/config/fields', authenticateAdmin, async (req, res) => {
+  try {
+    const { field_key, label_hi, label_en, field_type = 'text', is_required = 0, is_enabled = 1, display_order, help_text = '' } = req.body;
+    if (!field_key || !label_hi) {
+      return res.status(400).json({ success: false, error: 'फ़ील्ड कोड (Key) और हिंदी लेबल आवश्यक हैं।' });
+    }
+    const cleanKey = field_key.trim().replace(/[^a-zA-Z0-9_]/g, '');
+    const existing = await get(`SELECT id FROM field_configs WHERE field_key = ?`, [cleanKey]);
+    if (existing) {
+      return res.status(400).json({ success: false, error: 'यह फ़ील्ड कोड पहले से मौजूद है।' });
+    }
+
+    const maxOrderRow = await get(`SELECT MAX(display_order) as max_order FROM field_configs`);
+    const nextOrder = display_order !== undefined ? Number(display_order) : ((maxOrderRow?.max_order || 15) + 1);
+
+    await run(
+      `INSERT INTO field_configs (field_key, label_hi, label_en, field_type, is_required, is_enabled, display_order, help_text)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [cleanKey, label_hi.trim(), (label_en || cleanKey).trim(), field_type, is_required ? 1 : 0, is_enabled ? 1 : 0, nextOrder, help_text]
+    );
+
+    // Safely add column to card_logs table if not exists
+    try {
+      await exec(`ALTER TABLE card_logs ADD COLUMN ${cleanKey} TEXT`);
+    } catch (e) {}
+
+    const fields = await query(`SELECT * FROM field_configs ORDER BY display_order ASC`);
+    res.json({ success: true, message: `फ़ील्ड "${label_hi}" सफलतापूर्वक जोड़ दी गई!`, fields });
+  } catch (err) {
+    console.error('Add field error:', err);
+    res.status(500).json({ success: false, error: 'नया फ़ील्ड जोड़ने में त्रुटि हुई।' });
   }
 });
 

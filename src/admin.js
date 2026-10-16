@@ -1,6 +1,7 @@
 // INLD Admin Portal Logic
 import { jsPDF } from 'jspdf';
 import { preloadAssets, renderFrontCard, renderBackCard } from './cardGenerator.js';
+import { HARYANA_CONSTITUENCIES } from './constituencies.js';
 
 const API_BASE = '/api';
 
@@ -43,11 +44,17 @@ const el = {
   btnJumpFields: document.getElementById('btnJumpFields'),
   btnJumpLogs: document.getElementById('btnJumpLogs'),
 
-  // Logs
+  // Logs & Filters
   cardLogsTableBody: document.getElementById('cardLogsTableBody'),
   logSearchInput: document.getElementById('logSearchInput'),
-  logFilterState: document.getElementById('logFilterState'),
   logFilterDistrict: document.getElementById('logFilterDistrict'),
+  logFilterConstituency: document.getElementById('logFilterConstituency'),
+  adminConstituencyFilterList: document.getElementById('adminConstituencyFilterList'),
+  logFilterCaste: document.getElementById('logFilterCaste'),
+  logFilterVillage: document.getElementById('logFilterVillage'),
+  logFilterDob: document.getElementById('logFilterDob'),
+  logFilterDateFrom: document.getElementById('logFilterDateFrom'),
+  logFilterDateTo: document.getElementById('logFilterDateTo'),
   logStatusFilter: document.getElementById('logStatusFilter'),
   btnClearLogFilters: document.getElementById('btnClearLogFilters'),
   btnExportCsv: document.getElementById('btnExportCsv'),
@@ -58,6 +65,21 @@ const el = {
   fieldsListContainer: document.getElementById('fieldsListContainer'),
   btnSaveFieldConfigs: document.getElementById('btnSaveFieldConfigs'),
   btnResetDefaultFields: document.getElementById('btnResetDefaultFields'),
+  btnOpenAddFieldModal: document.getElementById('btnOpenAddFieldModal'),
+
+  // Add Custom Field Modal
+  modalAddNewField: document.getElementById('modalAddNewField'),
+  btnCloseAddFieldModal: document.getElementById('btnCloseAddFieldModal'),
+  btnCancelAddField: document.getElementById('btnCancelAddField'),
+  formAddNewCustomField: document.getElementById('formAddNewCustomField'),
+  newFieldKey: document.getElementById('newFieldKey'),
+  newFieldType: document.getElementById('newFieldType'),
+  newFieldLabelHi: document.getElementById('newFieldLabelHi'),
+  newFieldLabelEn: document.getElementById('newFieldLabelEn'),
+  newFieldOrder: document.getElementById('newFieldOrder'),
+  newFieldHelpText: document.getElementById('newFieldHelpText'),
+  newFieldRequired: document.getElementById('newFieldRequired'),
+  btnSubmitNewField: document.getElementById('btnSubmitNewField'),
 
   // Security
   changePasswordForm: document.getElementById('changePasswordForm'),
@@ -102,7 +124,9 @@ const el = {
   editCity: document.getElementById('editCity'),
   editVillage: document.getElementById('editVillage'),
   editConstituency: document.getElementById('editConstituency'),
+  adminEditConstituenciesList: document.getElementById('adminEditConstituenciesList'),
   editConscode: document.getElementById('editConscode'),
+  editAadhaar: document.getElementById('editAadhaar'),
   editDesignation: document.getElementById('editDesignation'),
   editDob: document.getElementById('editDob'),
   editCaste: document.getElementById('editCaste'),
@@ -215,6 +239,9 @@ async function initDashboard() {
     console.warn('Preload assets in admin:', err);
   }
 
+  // Initialize Haryana 90 constituencies datalists
+  initConstituencyDatalists();
+
   // Load initial data
   await Promise.all([
     loadStats(),
@@ -270,18 +297,59 @@ el.btnRefreshStats.addEventListener('click', () => {
 });
 
 // ==========================================
-// 2. CARD REQUESTS / LOGS
+// 2. CARD REQUESTS / LOGS & FILTERS
 // ==========================================
+
+const HARYANA_DISTRICTS = [
+  'Ambala', 'Bhiwani', 'Charkhi Dadri', 'Faridabad', 'Fatehabad', 'Gurugram',
+  'Hisar', 'Jhajjar', 'Jind', 'Kaithal', 'Karnal', 'Kurukshetra', 'Mahendragarh',
+  'Nuh', 'Palwal', 'Panchkula', 'Panipat', 'Rewari', 'Rohtak', 'Sirsa',
+  'Sonipat', 'Yamunanagar'
+];
+
+function initConstituencyDatalists() {
+  const optionsHtml = HARYANA_CONSTITUENCIES.map(
+    c => `<option value="${c.name}">${c.label}</option>`
+  ).join('');
+
+  if (el.adminConstituencyFilterList) {
+    el.adminConstituencyFilterList.innerHTML = optionsHtml;
+  }
+  if (el.adminEditConstituenciesList) {
+    el.adminEditConstituenciesList.innerHTML = optionsHtml;
+  }
+}
+
+function populateDistrictFilters(logs = []) {
+  if (!el.logFilterDistrict) return;
+  const currentVal = el.logFilterDistrict.value;
+  const loggedDistricts = logs.map(l => l.district).filter(Boolean);
+  const allDistricts = Array.from(new Set([...HARYANA_DISTRICTS, ...loggedDistricts])).sort();
+
+  el.logFilterDistrict.innerHTML = `<option value="all">सभी ज़िले (All Districts)</option>` +
+    allDistricts.map(d => `<option value="${escapeHtml(d)}" ${d === currentVal ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('');
+}
+
 async function loadCardLogs() {
   try {
-    const q = el.logSearchInput.value.trim();
-    const st = el.logFilterState.value;
-    const dist = el.logFilterDistrict.value;
+    const q = el.logSearchInput ? el.logSearchInput.value.trim() : '';
+    const dist = el.logFilterDistrict ? el.logFilterDistrict.value : 'all';
+    const constituency = el.logFilterConstituency ? el.logFilterConstituency.value.trim() : '';
+    const caste = el.logFilterCaste ? el.logFilterCaste.value.trim() : '';
+    const village = el.logFilterVillage ? el.logFilterVillage.value.trim() : '';
+    const dob = el.logFilterDob ? el.logFilterDob.value.trim() : '';
+    const dateFrom = el.logFilterDateFrom ? el.logFilterDateFrom.value : '';
+    const dateTo = el.logFilterDateTo ? el.logFilterDateTo.value : '';
 
     const params = new URLSearchParams();
     if (q) params.append('q', q);
-    if (st && st !== 'all') params.append('state', st);
     if (dist && dist !== 'all') params.append('district', dist);
+    if (constituency && constituency !== 'all') params.append('constituency', constituency);
+    if (caste && caste !== 'all') params.append('caste', caste);
+    if (village && village !== 'all') params.append('village', village);
+    if (dob) params.append('dob', dob);
+    if (dateFrom) params.append('dateFrom', dateFrom);
+    if (dateTo) params.append('dateTo', dateTo);
     if (state.activeStatusFilter && state.activeStatusFilter !== 'all') {
       params.append('status', state.activeStatusFilter);
     }
@@ -290,7 +358,7 @@ async function loadCardLogs() {
     if (data.success) {
       state.cardLogs = data.logs || [];
       renderCardLogsTable(state.cardLogs);
-      populateStateFilters(state.cardLogs);
+      populateDistrictFilters(state.cardLogs);
       el.logsCountInfo.textContent = `${state.cardLogs.length} / ${data.total || state.cardLogs.length} आवेदन प्रदर्शित`;
     }
   } catch (err) {
@@ -329,12 +397,12 @@ function renderCardLogsTable(logs) {
     const cityVillageStr = locArr.length > 0 ? locArr.join(', ') : '-';
 
     const statusBadge = (log.status === 'generated')
-      ? '<span class="status-badge-generated">✓ तैयार (Generated)</span>'
-      : '<span class="status-badge-pending">⏳ लंबित (Pending)</span>';
+      ? '<span class="status-badge-generated">✓ तैयार</span>'
+      : '<span class="status-badge-pending">⏳ लंबित</span>';
 
     return `
       <tr data-id="${log.id}">
-        <td>#${log.id}</td>
+        <td><strong>#${log.id}</strong></td>
         <td>
           <div class="member-cell">
             <img src="${photoSrc}" alt="${log.name}" class="member-thumb" onerror="this.src='/assets/sample_member_photo.jpg'">
@@ -354,16 +422,19 @@ function renderCardLogsTable(logs) {
           <small style="color: var(--text-muted);">${escapeHtml(log.state || 'Haryana')}</small>
         </td>
         <td>${escapeHtml(cityVillageStr)}</td>
-        <td>${escapeHtml(log.constituency || 'N/A')} ${log.conscode ? `(${escapeHtml(log.conscode)})` : ''}</td>
+        <td>${escapeHtml(log.constituency || 'N/A')} ${log.conscode ? `<small>(${escapeHtml(log.conscode)})</small>` : ''}</td>
         <td>${statusBadge}</td>
-        <td style="white-space: nowrap;">${formattedDate}</td>
+        <td style="white-space: nowrap;"><small>${formattedDate}</small></td>
         <td>
           <div class="table-actions-group">
-            <button type="button" class="btn-action-generate" title="पहचान पत्र बनाएं" onclick="window.generateAdminCard(${log.id})">
-              🪪 कार्ड बनाएं
+            <button type="button" class="btn-action-generate" title="पहचान पत्र स्टूडियो खोलें" onclick="window.generateAdminCard(${log.id})">
+              🪪 कार्ड
+            </button>
+            <button type="button" class="btn-action-pdf" title="व्यक्तिगत सदस्यता आवेदन पर्ची PDF" onclick="window.exportIndividualRecordPdf(${log.id})">
+              📄 PDF
             </button>
             <button type="button" class="btn-action-edit" title="विवरण संपादित करें" onclick="window.editCardLog(${log.id})">
-              ✏️ एडिट
+              ✏️
             </button>
             <button type="button" class="btn-action-delete" title="आवेदन हटाएं" onclick="window.promptDeleteCardLog(${log.id})">
               🗑️
@@ -375,14 +446,202 @@ function renderCardLogsTable(logs) {
   }).join('');
 }
 
-// Populate State dropdown dynamically from logs
-function populateStateFilters(logs) {
-  const currentVal = el.logFilterState.value;
-  const states = Array.from(new Set(logs.map(l => l.state).filter(Boolean)));
-  
-  el.logFilterState.innerHTML = `<option value="all">सभी राज्य (All States)</option>` +
-    states.map(s => `<option value="${escapeHtml(s)}" ${s === currentVal ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('');
-}
+// Export Individual Record PDF
+window.exportIndividualRecordPdf = function(id) {
+  const log = state.cardLogs.find(l => l.id === id);
+  if (!log) {
+    showToast('कार्ड रिकॉर्ड नहीं मिला', false);
+    return;
+  }
+
+  try {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    const primaryGreen = [11, 77, 46];
+    const goldColor = [212, 175, 55];
+    const darkText = [30, 41, 59];
+    const grayText = [100, 116, 139];
+
+    // Header Banner
+    doc.setFillColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
+    doc.rect(0, 0, 210, 32, 'F');
+
+    // Gold accent line
+    doc.setFillColor(goldColor[0], goldColor[1], goldColor[2]);
+    doc.rect(0, 32, 210, 2, 'F');
+
+    // Header Title
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('INDIAN NATIONAL LOKDAL (INLD)', 105, 14, { align: 'center' });
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('HARYANA STATE HEADQUARTERS • MEMBERSHIP & CADRE RECORD', 105, 22, { align: 'center' });
+    doc.setFontSize(8);
+    doc.text('Official Party Membership Application & Verification Record Slip', 105, 28, { align: 'center' });
+
+    // Meta Badge Ribbon
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(15, 38, 180, 14, 2, 2, 'FD');
+
+    const formattedDate = new Date(log.created_at).toLocaleString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
+    doc.text(`APPLICATION REF: INLD-REQ-#${log.id}`, 20, 47);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(grayText[0], grayText[1], grayText[2]);
+    doc.text(`Submitted: ${formattedDate}`, 95, 47);
+
+    const isGenerated = (log.status === 'generated');
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(isGenerated ? 22 : 180, isGenerated ? 101 : 83, isGenerated ? 52 : 9);
+    doc.text(`Status: ${isGenerated ? 'ISSUED / GENERATED' : 'PENDING VERIFICATION'}`, 190, 47, { align: 'right' });
+
+    // Profile Photo Box (Right side 155mm)
+    doc.setDrawColor(goldColor[0], goldColor[1], goldColor[2]);
+    doc.setFillColor(241, 245, 249);
+    doc.roundedRect(155, 58, 38, 48, 2, 2, 'FD');
+
+    let photoAdded = false;
+    if (log.photo_url && (log.photo_url.startsWith('data:image/') || log.photo_url.startsWith('http') || log.photo_url.startsWith('/'))) {
+      try {
+        doc.addImage(log.photo_url, 'JPEG', 156, 59, 36, 46);
+        photoAdded = true;
+      } catch (e) {
+        photoAdded = false;
+      }
+    }
+    if (!photoAdded) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(grayText[0], grayText[1], grayText[2]);
+      doc.text('Member Photo', 174, 82, { align: 'center' });
+      doc.text('(Passport Size)', 174, 87, { align: 'center' });
+    }
+
+    // Details Grid (Left side 15mm to 150mm)
+    doc.setDrawColor(226, 232, 240);
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(15, 58, 135, 148, 2, 2, 'FD');
+
+    // Section title
+    doc.setFillColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
+    doc.rect(15, 58, 135, 8, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('MEMBER PERSONAL & CONSTITUENCY DETAILS', 20, 63.5);
+
+    const fields = [
+      { label: 'Full Name (सदस्य का नाम)', val: log.name || '-' },
+      { label: "Father's Name (पिता का नाम)", val: log.father_name || '-' },
+      { label: 'Mobile Number (मोबाइल)', val: log.mobile || '-' },
+      { label: 'WhatsApp Number', val: log.whatsapp_number || log.mobile || '-' },
+      { label: 'Aadhaar Card No. (आधार नंबर)', val: log.aadhaar_no || '-' },
+      { label: 'Date of Birth (जन्म तिथि)', val: log.dob || '-' },
+      { label: 'Caste / Category (जाति)', val: log.caste || '-' },
+      { label: 'Designation / Role (पद)', val: log.designation || 'INLD Karyakarta' },
+      { label: 'State & District (राज्य व ज़िला)', val: `${log.district || '-'}, ${log.state || 'Haryana'}` },
+      { label: 'City / Town (शहर)', val: log.city || '-' },
+      { label: 'Village (गांव)', val: log.village || '-' },
+      { label: 'Assembly Constituency (विधानसभा)', val: `${log.constituency || '-'} ${log.conscode ? '(' + log.conscode + ')' : ''}` },
+      { label: 'Booth Number (बूथ नं)', val: log.booth || '-' },
+      { label: 'Membership ID (क्रमांक)', val: log.membership_no || `INLD-REQ-${log.id}` }
+    ];
+
+    let rowY = 73;
+    fields.forEach((f, idx) => {
+      if (idx % 2 === 1) {
+        doc.setFillColor(248, 250, 252);
+        doc.rect(16, rowY - 4.5, 133, 9, 'F');
+      }
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(grayText[0], grayText[1], grayText[2]);
+      doc.text(f.label, 20, rowY);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(darkText[0], darkText[1], darkText[2]);
+      const safeVal = String(f.val).slice(0, 45);
+      doc.text(safeVal, 75, rowY);
+
+      rowY += 9.5;
+    });
+
+    // Verification & Signatures Section
+    doc.setDrawColor(226, 232, 240);
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(15, 212, 180, 52, 2, 2, 'FD');
+
+    // Left sign box (Applicant Declaration)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
+    doc.text('APPLICANT DECLARATION', 22, 220);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(grayText[0], grayText[1], grayText[2]);
+    doc.text('I hereby confirm that the submitted details are correct and I abide', 22, 226);
+    doc.text('by the constitution and principles of Indian National Lokdal (INLD).', 22, 230);
+    doc.text('Applicant Signature: _______________________', 22, 252);
+
+    // Right sign box (Authorized Official)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
+    doc.text('OFFICIAL ATTESTATION & STAMP', 115, 220);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(grayText[0], grayText[1], grayText[2]);
+    doc.text('Attested by District / Constituency Unit Administrator', 115, 226);
+    doc.text(`Record Verified on: ${new Date().toLocaleDateString('en-IN')}`, 115, 230);
+
+    doc.setDrawColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
+    doc.roundedRect(115, 236, 72, 22, 1, 1, 'D');
+    doc.setFontSize(7);
+    doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
+    doc.text('SEAL / AUTHORIZED SIGNATORY (INLD)', 151, 253, { align: 'center' });
+
+    // Official Footer
+    doc.setFillColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
+    doc.rect(0, 276, 210, 21, 'F');
+
+    doc.setFillColor(goldColor[0], goldColor[1], goldColor[2]);
+    doc.rect(0, 275, 210, 1, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('CH. DEVI LAL AMAR RAHEIN • JAI JAWAN JAI KISAN • INLD EKTA', 105, 283, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text('Generated via INLD Official Cadre Management Portal • Computer Generated Verified Document', 105, 289, { align: 'center' });
+
+    const cleanName = (log.name || 'Member').replace(/[^a-zA-Z0-9]/g, '_');
+    doc.save(`INLD_Record_${cleanName}_#${log.id}.pdf`);
+    showToast(`✓ सदस्य ${log.name} का व्यक्तिगत PDF रिकॉर्ड डाउनलोड हो गया!`);
+  } catch (err) {
+    console.error('PDF generation error:', err);
+    showToast('PDF डाउनलोड करने में त्रुटि', false);
+  }
+};
 
 // Status filter pills listener
 el.logStatusFilter?.querySelectorAll('.filter-pill').forEach(pill => {
@@ -395,19 +654,31 @@ el.logStatusFilter?.querySelectorAll('.filter-pill').forEach(pill => {
 });
 
 // Search and filter listeners
-el.logSearchInput.addEventListener('input', () => loadCardLogs());
-el.logFilterState.addEventListener('change', () => loadCardLogs());
-el.logFilterDistrict.addEventListener('change', () => loadCardLogs());
-el.btnClearLogFilters.addEventListener('click', () => {
-  el.logSearchInput.value = '';
-  el.logFilterState.value = 'all';
-  el.logFilterDistrict.value = 'all';
+el.logSearchInput?.addEventListener('input', () => loadCardLogs());
+el.logFilterDistrict?.addEventListener('change', () => loadCardLogs());
+el.logFilterConstituency?.addEventListener('input', () => loadCardLogs());
+el.logFilterCaste?.addEventListener('input', () => loadCardLogs());
+el.logFilterVillage?.addEventListener('input', () => loadCardLogs());
+el.logFilterDob?.addEventListener('input', () => loadCardLogs());
+el.logFilterDateFrom?.addEventListener('change', () => loadCardLogs());
+el.logFilterDateTo?.addEventListener('change', () => loadCardLogs());
+
+el.btnClearLogFilters?.addEventListener('click', () => {
+  if (el.logSearchInput) el.logSearchInput.value = '';
+  if (el.logFilterDistrict) el.logFilterDistrict.value = 'all';
+  if (el.logFilterConstituency) el.logFilterConstituency.value = '';
+  if (el.logFilterCaste) el.logFilterCaste.value = '';
+  if (el.logFilterVillage) el.logFilterVillage.value = '';
+  if (el.logFilterDob) el.logFilterDob.value = '';
+  if (el.logFilterDateFrom) el.logFilterDateFrom.value = '';
+  if (el.logFilterDateTo) el.logFilterDateTo.value = '';
   state.activeStatusFilter = 'all';
   el.logStatusFilter?.querySelectorAll('.filter-pill').forEach((p, i) => p.classList.toggle('active', i === 0));
   loadCardLogs();
-  showToast('फ़िल्टर रीसेट कर दिए गए');
+  showToast('फ़िल्टर साफ़ कर दिए गए');
 });
-el.btnRefreshLogs.addEventListener('click', () => {
+
+el.btnRefreshLogs?.addEventListener('click', () => {
   loadCardLogs();
   showToast('कार्ड आवेदन सूची रीफ़्रेश हो गई!');
 });
@@ -683,6 +954,7 @@ window.editCardLog = function(id) {
   el.editVillage.value = log.village || '';
   el.editConstituency.value = log.constituency || '';
   el.editConscode.value = log.conscode || '';
+  if (el.editAadhaar) el.editAadhaar.value = log.aadhaar_no || '';
   el.editDesignation.value = log.designation || 'INLD Karyakarta';
   el.editDob.value = log.dob || '';
   el.editCaste.value = log.caste || '';
@@ -695,6 +967,17 @@ window.editCardLog = function(id) {
 
   el.adminEditCardModal.classList.add('active');
 };
+
+// Auto match Constituency Code in Admin Edit Form
+el.editConstituency?.addEventListener('input', () => {
+  const typed = (el.editConstituency.value || '').trim().toLowerCase();
+  const matched = HARYANA_CONSTITUENCIES.find(
+    c => c.name.toLowerCase() === typed || c.label.toLowerCase().includes(typed)
+  );
+  if (matched) {
+    el.editConscode.value = matched.code;
+  }
+});
 
 // Handle Edit Photo Input
 el.editPhotoInput.addEventListener('change', (e) => {
@@ -738,6 +1021,7 @@ el.adminEditMemberForm.addEventListener('submit', async (e) => {
     village: el.editVillage.value.trim(),
     constituency: el.editConstituency.value.trim(),
     conscode: el.editConscode.value.trim(),
+    aadhaar_no: el.editAadhaar ? el.editAadhaar.value.trim() : '',
     designation: el.editDesignation.value.trim(),
     dob: el.editDob.value.trim(),
     caste: el.editCaste.value.trim(),
@@ -982,6 +1266,84 @@ el.btnResetDefaultFields.addEventListener('click', async () => {
     showToast('रीसेट करने में त्रुटि', false);
   }
 });
+
+// Add New Custom Field Modal Listeners
+if (el.btnOpenAddFieldModal) {
+  el.btnOpenAddFieldModal.addEventListener('click', () => {
+    if (el.formAddNewCustomField) el.formAddNewCustomField.reset();
+    if (el.newFieldOrder) el.newFieldOrder.value = (state.fields.length || 14) + 1;
+    if (el.modalAddNewField) el.modalAddNewField.classList.add('active');
+  });
+}
+
+if (el.btnCloseAddFieldModal) {
+  el.btnCloseAddFieldModal.addEventListener('click', () => {
+    if (el.modalAddNewField) el.modalAddNewField.classList.remove('active');
+  });
+}
+
+if (el.btnCancelAddField) {
+  el.btnCancelAddField.addEventListener('click', () => {
+    if (el.modalAddNewField) el.modalAddNewField.classList.remove('active');
+  });
+}
+
+if (el.modalAddNewField) {
+  el.modalAddNewField.addEventListener('click', (e) => {
+    if (e.target === el.modalAddNewField) el.modalAddNewField.classList.remove('active');
+  });
+}
+
+if (el.formAddNewCustomField) {
+  el.formAddNewCustomField.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fieldKey = (el.newFieldKey.value || '').trim();
+    const labelHi = (el.newFieldLabelHi.value || '').trim();
+    const labelEn = (el.newFieldLabelEn.value || '').trim();
+    const fieldType = el.newFieldType.value || 'text';
+    const displayOrder = parseInt(el.newFieldOrder.value, 10) || 15;
+    const isRequired = el.newFieldRequired.checked ? 1 : 0;
+    const helpText = (el.newFieldHelpText.value || '').trim();
+
+    if (!fieldKey || !labelHi) {
+      showToast('फ़ील्ड कोड (Key) और हिंदी नाम आवश्यक हैं!', false);
+      return;
+    }
+
+    el.btnSubmitNewField.disabled = true;
+    el.btnSubmitNewField.textContent = 'सहेजा जा रहा है...';
+
+    try {
+      const res = await authFetch(`${API_BASE}/config/fields`, {
+        method: 'POST',
+        body: JSON.stringify({
+          field_key: fieldKey,
+          label_hi: labelHi,
+          label_en: labelEn || fieldKey,
+          field_type: fieldType,
+          display_order: displayOrder,
+          is_required: isRequired,
+          is_enabled: 1,
+          help_text: helpText
+        })
+      });
+
+      if (res.success) {
+        showToast(res.message || `✓ नया फ़ील्ड "${labelHi}" सफलतापूर्वक जोड़ दिया गया!`);
+        if (el.modalAddNewField) el.modalAddNewField.classList.remove('active');
+        await loadFieldConfigs();
+        await loadStats();
+      } else {
+        showToast(res.error || 'फ़ील्ड जोड़ने में त्रुटि', false);
+      }
+    } catch (err) {
+      showToast('फ़ील्ड जोड़ने में त्रुटि हुई', false);
+    } finally {
+      el.btnSubmitNewField.disabled = false;
+      el.btnSubmitNewField.textContent = '✅ नया फ़ील्ड जोड़ें (Add Field)';
+    }
+  });
+}
 
 // ==========================================
 // 4. SECURITY / CHANGE PASSWORD

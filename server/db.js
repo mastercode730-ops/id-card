@@ -205,11 +205,12 @@ export async function initDb() {
     );
   `);
 
-  // Ensure user_id, city, village, status columns exist on card_logs
+  // Ensure user_id, city, village, status, aadhaar_no columns exist on card_logs
   try { await exec(`ALTER TABLE card_logs ADD COLUMN user_id INTEGER`); } catch (e) {}
   try { await exec(`ALTER TABLE card_logs ADD COLUMN city TEXT`); } catch (e) {}
   try { await exec(`ALTER TABLE card_logs ADD COLUMN village TEXT`); } catch (e) {}
   try { await exec(`ALTER TABLE card_logs ADD COLUMN status TEXT DEFAULT 'pending'`); } catch (e) {}
+  try { await exec(`ALTER TABLE card_logs ADD COLUMN aadhaar_no TEXT`); } catch (e) {}
 
   // 6. Dynamic Field Configuration Table
   await exec(`
@@ -365,6 +366,17 @@ export async function initDb() {
         );
         console.log('✓ Added inputVillage to existing field_configs');
       }
+
+      const aadhaarField = await get(`SELECT id FROM field_configs WHERE field_key = 'inputAadhaar'`);
+      if (!aadhaarField) {
+        await run(
+          `INSERT INTO field_configs (field_key, label_hi, label_en, field_type, is_required, is_enabled, display_order, help_text)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          ['inputAadhaar', 'आधार नंबर (Aadhaar No)', 'Aadhaar Number', 'text', 0, 1, 16, '12 अंकों का आधार नंबर']
+        );
+        console.log('✓ Added inputAadhaar to existing field_configs');
+      }
+
       // Ensure inputConscode is disabled by default unless admin modified
       await run(`UPDATE field_configs SET is_enabled = 0, is_required = 0 WHERE field_key = 'inputConscode' AND is_enabled = 1`);
     } catch (err) {
