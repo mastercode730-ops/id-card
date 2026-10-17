@@ -768,26 +768,18 @@ function exportAllRecordsPdf() {
       format: 'a4' // 297mm x 210mm
     });
 
-    let tabLabel = 'All Applications (सभी आवेदन)';
     let statusSuffix = 'All';
     if (state.activeStatusFilter === 'pending') {
-      tabLabel = 'Pending Applications (लंबित आवेदन)';
       statusSuffix = 'Pending';
     } else if (state.activeStatusFilter === 'generated') {
-      tabLabel = 'Generated Cards (कार्ड तैयार)';
       statusSuffix = 'Generated';
     }
 
     // Document Header
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(20);
+    doc.setFontSize(22);
     doc.setTextColor(15, 23, 42);
-    doc.text('Candidate / Member Details', 148.5, 16, { align: 'center' });
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9.5);
-    doc.setTextColor(71, 85, 105);
-    doc.text(`Status Filter: ${tabLabel}  |  Total: ${filteredLogs.length} Records  |  Exported on: ${new Date().toLocaleDateString('en-IN')}`, 148.5, 23, { align: 'center' });
+    doc.text('Candidate / Member Details', 148.5, 20, { align: 'center' });
 
     // Columns: S.No.(14), Name(40), Father Name(40), District(30), Constituency(35), Village(35), Phone Number(35), Photo(25)
     // Total = 254mm, left margin = (297 - 254) / 2 = 21.5mm
@@ -796,7 +788,7 @@ function exportAllRecordsPdf() {
     const totalTableWidth = colWidths.reduce((sum, w) => sum + w, 0);
     const headers = ['S.No.', 'Name', 'Father Name', 'District', 'Constituency', 'Village', 'Phone Number', 'Photo'];
 
-    let currentY = 29;
+    let currentY = 32;
     const rowHeight = 12;
 
     function drawTableHeader(y) {
