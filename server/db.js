@@ -228,15 +228,15 @@ export async function initDb() {
   `);
 
   // Seed default admin if none exists
-  const existingAdmin = await get(`SELECT * FROM admin_users WHERE username = ?`, ['admin']);
+  const existingAdmin = await get(`SELECT * FROM admin_users WHERE username = ?`, ['Indian National Lokdal']);
   if (!existingAdmin) {
     const salt = await bcrypt.genSalt(10);
-    const hash = await bcrypt.hash('admin123', salt);
+    const hash = await bcrypt.hash('Inld2029', salt);
     await run(
       `INSERT INTO admin_users (username, password_hash, name, role) VALUES (?, ?, ?, ?)`,
-      ['admin', hash, 'INLD Admin', 'superadmin']
+      ['Indian National Lokdal', hash, 'Indian National Lokdal', 'superadmin']
     );
-    console.log('✓ Seeded default admin user: username=admin, password=admin123');
+    console.log('✓ Seeded default admin user: username=Indian National Lokdal, password=Inld2029');
   }
 
   // Seed default system settings if empty

@@ -198,7 +198,7 @@ function getFormData() {
     mobile: mobileVal,
     mobileCountryCode: elements.selectMobileCountry.value,
     dob: elements.inputDob.value.trim(),
-    caste: elements.inputCaste.value.trim() || 'Gen(Brahmin)',
+    caste: elements.inputCaste.value.trim() || 'General',
     designation: elements.inputDesignation.value.trim() || 'INLD Karyakarta',
     state: elements.selectState.value.trim() || 'Haryana',
     district: elements.selectDistrict.value.trim(),
@@ -471,7 +471,7 @@ function validateForm() {
   const casteVal = elements.inputCaste.value.trim();
   if (isFieldEnabled('inputCaste')) {
     if (isFieldRequired('inputCaste') && !casteVal) {
-      markError('inputCaste', 'जाति / वर्ग (Caste) दर्ज करना अनिवार्य है');
+      markError('inputCaste', 'जाति / वर्ग (Caste) चुनना अनिवार्य है');
     } else {
       clearFieldError('inputCaste');
     }
@@ -552,7 +552,7 @@ function loadSampleData() {
   if (elements.inputConscode) elements.inputConscode.value = '45';
   elements.inputDesignation.value = 'State Social Media Coordinator';
   elements.inputDob.value = '20/05/1973';
-  elements.inputCaste.value = 'Gen(Brahmin)';
+  elements.inputCaste.value = 'General';
   elements.inputBooth.value = '30';
   elements.selectWaCountry.value = '+91';
   elements.whatsappNumber.value = '9815395397';

@@ -187,7 +187,14 @@
           <label class="field-label" for="inputCaste">
             जाति / वर्ग (Caste) <span class="req-star">*</span>
           </label>
-          <input type="text" id="inputCaste" placeholder="जैसे Gen(Brahmin), Jat, OBC...">
+          <select id="inputCaste">
+            <option value="">जाति / वर्ग चुनें (Select Category)</option>
+            <option value="General">General</option>
+            <option value="OBC">OBC</option>
+            <option value="OSC">OSC</option>
+            <option value="DSC">DSC</option>
+            <option value="Others">Others</option>
+          </select>
           <div class="field-error" id="error-inputCaste"></div>
         </div>
 

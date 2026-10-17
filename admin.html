@@ -40,10 +40,6 @@
         <button type="submit" class="btn-login-submit" id="btnLoginSubmit">
           सुरक्षित लॉगिन करें (Sign In)
         </button>
-
-        <div class="login-demo-hint">
-          <span>डिफ़ॉल्ट लॉगिन: <strong>admin</strong> / <strong>admin123</strong></span>
-        </div>
       </form>
 
       <div class="login-footer-link">
@@ -218,23 +214,14 @@
 
             <div class="filter-item">
               <label class="filter-label">जाति / वर्ग (Caste)</label>
-              <input type="text" id="logFilterCaste" list="adminCasteFilterList" class="filter-input-text" placeholder="जाति दर्ज करें...">
-              <datalist id="adminCasteFilterList">
-                <option value="Jat">जाट (Jat)</option>
-                <option value="Brahmin">ब्राह्मण (Brahmin)</option>
-                <option value="Yadav">यादव / अहीर (Yadav)</option>
-                <option value="Gurjar">गुर्जर (Gurjar)</option>
-                <option value="Rajput">राजपूत (Rajput)</option>
-                <option value="Saini">सैनी (Saini)</option>
-                <option value="SC">अनुसूचित जाति (SC)</option>
-                <option value="BC-A">पिछड़ा वर्ग A (BC-A)</option>
-                <option value="BC-B">पिछड़ा वर्ग B (BC-B)</option>
-                <option value="Punjabi">पंजाबी (Punjabi)</option>
-                <option value="Aggarwal / Bania">अग्रवाल / वैश्य</option>
-                <option value="Muslim">मुस्लिम (Muslim)</option>
-                <option value="Sikh">सिख (Sikh)</option>
-                <option value="General">सामान्य (General)</option>
-              </datalist>
+              <select id="logFilterCaste" class="filter-input-select">
+                <option value="all">सभी जाति / वर्ग (All)</option>
+                <option value="General">General</option>
+                <option value="OBC">OBC</option>
+                <option value="OSC">OSC</option>
+                <option value="DSC">DSC</option>
+                <option value="Others">Others</option>
+              </select>
             </div>
 
             <div class="filter-item">
@@ -559,7 +546,14 @@
 
             <div class="form-group">
               <label for="editCaste">जाति / वर्ग (Caste)</label>
-              <input type="text" id="editCaste" placeholder="जैसे Gen, Jat, OBC">
+              <select id="editCaste">
+                <option value="">जाति / वर्ग चुनें (Select Category)</option>
+                <option value="General">General</option>
+                <option value="OBC">OBC</option>
+                <option value="OSC">OSC</option>
+                <option value="DSC">DSC</option>
+                <option value="Others">Others</option>
+              </select>
             </div>
 
             <div class="form-group">
