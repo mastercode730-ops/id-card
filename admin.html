@@ -20,7 +20,7 @@
         <div class="login-emblem">
           <img src="/assets/logo_green_img.png" alt="INLD Logo" class="login-logo">
         </div>
-        <h2>इनेलो प्रशासक पोर्टल</h2>
+        <h2>इनेलो एडमिन पोर्टल</h2>
         <p>INLD Card System Admin Portal</p>
       </div>
 
@@ -47,7 +47,7 @@
       </form>
 
       <div class="login-footer-link">
-        <a href="/">← मुख्य कार्ड जनरेटर पर वापस जाएं</a>
+        <a href="/">← मुख्य कार्ड बनाओ पेज पर वापस जाएं</a>
       </div>
     </div>
   </div>
@@ -66,8 +66,8 @@
       </div>
 
       <div class="admin-top-actions">
-        <a href="/" target="_blank" class="btn-top-link">
-          🌐 जनरेटर खोलें
+        <a href="/" target="_blank" class="btn-top-link" title="मुख्य कार्ड बनाओ फ़ॉर्म खोलें">
+          🌐 कार्ड बनाओ
         </a>
         <div class="admin-user-pill">
           <span class="avatar-circle" id="adminAvatar">A</span>
@@ -182,8 +182,11 @@
             <p>किस कार्यकर्ता ने कब, किस मोबाइल नंबर और विधानसभा क्षेत्र के लिए कार्ड बनाया</p>
           </div>
           <div class="logs-action-buttons">
-            <button type="button" class="btn-export-csv" id="btnExportCsv">
+            <button type="button" class="btn-export-csv" id="btnExportCsv" title="Excel / CSV फ़ाइल डाउनलोड करें">
               📥 Excel/CSV में डाउनलोड करें
+            </button>
+            <button type="button" class="btn-export-all-pdf" id="btnExportAllPdf" title="सदस्य विवरण सारांश PDF तालिका डाउनलोड करें">
+              📄 PDF तालिका डाउनलोड करें
             </button>
             <button type="button" class="btn-refresh" id="btnRefreshLogs">
               🔄 रीफ़्रेश
@@ -319,7 +322,7 @@
         </div>
 
         <div class="config-instructions-alert">
-          💡 <strong>ध्यान दें:</strong> जिस फ़ील्ड का "सक्षम (Enabled)" टॉगल आप बंद करेंगे, वह मुख्य कार्ड जनरेटर फ़ॉर्म से तुरंत गायब हो जाएगी।
+          💡 <strong>ध्यान दें:</strong> जिस फ़ील्ड का "सक्षम (Enabled)" टॉगल आप बंद करेंगे, वह मुख्य कार्ड बनाओ फ़ॉर्म से तुरंत गायब हो जाएगी।
         </div>
 
         <!-- Fields List Container -->
@@ -386,7 +389,7 @@
       <div class="admin-modal-header">
         <div class="modal-header-info">
           <span class="badge-tag-gold">INLD Official ID Card Studio</span>
-          <h3 id="genModalMemberTitle">सदस्य पहचान पत्र जनरेटर</h3>
+          <h3 id="genModalMemberTitle">सदस्य पहचान पत्र बनाओ</h3>
         </div>
         <button type="button" class="modal-close" id="btnCloseGenModal">&times;</button>
       </div>

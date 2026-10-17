@@ -662,6 +662,28 @@ input, button, select, textarea {
   box-shadow: 0 4px 12px rgba(11, 77, 46, 0.3);
 }
 
+.btn-export-all-pdf {
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  color: #ffffff;
+  border: 1px solid #818cf8;
+  font-weight: 700;
+  font-size: 0.84rem;
+  padding: 9px 18px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.2);
+}
+
+.btn-export-all-pdf:hover {
+  background: linear-gradient(135deg, #4338ca, #4f46e5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
+}
+
 .toolbar-box {
   background: #ffffff;
   border: 1.5px solid var(--border-light);

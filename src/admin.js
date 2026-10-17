@@ -58,6 +58,7 @@ const el = {
   logStatusFilter: document.getElementById('logStatusFilter'),
   btnClearLogFilters: document.getElementById('btnClearLogFilters'),
   btnExportCsv: document.getElementById('btnExportCsv'),
+  btnExportAllPdf: document.getElementById('btnExportAllPdf'),
   btnRefreshLogs: document.getElementById('btnRefreshLogs'),
   logsCountInfo: document.getElementById('logsCountInfo'),
 
@@ -442,8 +443,8 @@ function renderCardLogsTable(logs) {
         <td style="white-space: nowrap;"><small>${formattedDate}</small></td>
         <td>
           <div class="table-actions-group">
-            <button type="button" class="btn-action-generate" title="पहचान पत्र स्टूडियो खोलें" onclick="window.generateAdminCard(${log.id})">
-              🪪 कार्ड
+            <button type="button" class="btn-action-generate" title="पहचान पत्र बनाएं" onclick="window.generateAdminCard(${log.id})">
+              🪪 कार्ड बनाओ
             </button>
             <button type="button" class="btn-action-pdf" title="व्यक्तिगत सदस्यता आवेदन पर्ची PDF" onclick="window.exportIndividualRecordPdf(${log.id})">
               📄 PDF
@@ -738,6 +739,118 @@ el.btnExportCsv.addEventListener('click', () => {
   showToast('✓ CSV सफलतापूर्वक डाउनलोड हो गई!');
 });
 
+// Export All Records as PDF Table (Matching Screenshot: "Candidate / Member Details")
+function exportAllRecordsPdf() {
+  if (!state.cardLogs || state.cardLogs.length === 0) {
+    showToast('एक्सपोर्ट करने के लिए कोई रिकॉर्ड उपलब्ध नहीं है', false);
+    return;
+  }
+
+  try {
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4' // 297mm x 210mm
+    });
+
+    // Document Header
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.setTextColor(15, 23, 42);
+    doc.text('Candidate / Member Details', 148.5, 20, { align: 'center' });
+
+    // Columns: S.No.(14), Name(40), Father Name(40), District(30), Constituency(35), Village(35), Phone Number(35), Photo(25)
+    // Total = 254mm, left margin = (297 - 254) / 2 = 21.5mm
+    const startX = 21.5;
+    const colWidths = [14, 40, 40, 30, 35, 35, 35, 25];
+    const headers = ['S.No.', 'Name', 'Father Name', 'District', 'Constituency', 'Village', 'Phone Number', 'Photo'];
+
+    let currentY = 32;
+    const rowHeight = 12;
+
+    function drawTableHeader(y) {
+      doc.setFillColor(224, 242, 254);
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.3);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0);
+
+      let x = startX;
+      for (let i = 0; i < headers.length; i++) {
+        doc.rect(x, y, colWidths[i], 9, 'FD');
+        doc.text(headers[i], x + colWidths[i] / 2, y + 6, { align: 'center' });
+        x += colWidths[i];
+      }
+      return y + 9;
+    }
+
+    currentY = drawTableHeader(currentY);
+
+    state.cardLogs.forEach((log, index) => {
+      if (currentY + rowHeight > 195) {
+        doc.addPage([297, 210], 'landscape');
+        currentY = 20;
+        currentY = drawTableHeader(currentY);
+      }
+
+      const rowData = [
+        String(index + 1),
+        log.name || '-',
+        log.father_name || '-',
+        log.district || '-',
+        log.constituency || '-',
+        log.village || log.city || '-',
+        log.mobile || '-',
+        'Photo'
+      ];
+
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.2);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(0, 0, 0);
+
+      let x = startX;
+      for (let i = 0; i < rowData.length; i++) {
+        doc.rect(x, currentY, colWidths[i], rowHeight, 'D');
+
+        if (i === 7) {
+          let photoRendered = false;
+          if (log.photo_url && (log.photo_url.startsWith('data:image/') || log.photo_url.startsWith('http'))) {
+            try {
+              doc.addImage(log.photo_url, 'JPEG', x + (colWidths[i] - 10) / 2, currentY + 1, 10, 10);
+              photoRendered = true;
+            } catch (e) {
+              photoRendered = false;
+            }
+          }
+          if (!photoRendered) {
+            doc.text('Photo', x + colWidths[i] / 2, currentY + rowHeight / 2 + 1.5, { align: 'center' });
+          }
+        } else if (i === 0) {
+          doc.text(rowData[i], x + colWidths[i] / 2, currentY + rowHeight / 2 + 1.5, { align: 'center' });
+        } else {
+          const truncated = doc.splitTextToSize(rowData[i], colWidths[i] - 4);
+          doc.text(truncated, x + 2, currentY + rowHeight / 2 + 1);
+        }
+
+        x += colWidths[i];
+      }
+
+      currentY += rowHeight;
+    });
+
+    doc.save(`INLD_Candidate_Member_Details_${new Date().toISOString().slice(0, 10)}.pdf`);
+    showToast('✓ सम्पूर्ण सदस्य विवरण तालिका PDF डाउनलोड हो गई!');
+  } catch (err) {
+    console.error('Export all PDF error:', err);
+    showToast('PDF डाउनलोड करने में त्रुटि', false);
+  }
+}
+
+el.btnExportAllPdf?.addEventListener('click', exportAllRecordsPdf);
+
 // ==========================================
 // 2B. ADMIN CARD GENERATOR STUDIO
 // ==========================================
@@ -747,7 +860,7 @@ window.generateAdminCard = async function(id) {
 
   state.currentGeneratingCard = log;
 
-  el.genModalMemberTitle.textContent = `कार्ड जनरेटर: ${log.name} (${log.membership_no || 'INLD'})`;
+  el.genModalMemberTitle.textContent = `कार्ड बनाओ: ${log.name} (${log.membership_no || 'INLD'})`;
 
   const locArr = [];
   if (log.village) locArr.push(`गांव: ${log.village}`);
