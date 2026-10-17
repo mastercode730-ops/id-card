@@ -699,15 +699,29 @@ el.btnRefreshLogs?.addEventListener('click', () => {
   showToast('कार्ड आवेदन सूची रीफ़्रेश हो गई!');
 });
 
-// Export CSV
+// Helper to get logs filtered by current active status tab
+function getActiveFilteredLogs() {
+  let logs = state.cardLogs || [];
+  if (state.activeStatusFilter && state.activeStatusFilter !== 'all') {
+    logs = logs.filter(l => (l.status || 'pending') === state.activeStatusFilter);
+  }
+  return logs;
+}
+
+// Export CSV (Filtered by active tab / status)
 el.btnExportCsv.addEventListener('click', () => {
-  if (state.cardLogs.length === 0) {
-    showToast('एक्सपोर्ट करने के लिए कोई रिकॉर्ड उपलब्ध नहीं है', false);
+  const filteredLogs = getActiveFilteredLogs();
+  if (filteredLogs.length === 0) {
+    showToast('इस टैब में एक्सपोर्ट करने के लिए कोई रिकॉर्ड उपलब्ध नहीं है', false);
     return;
   }
 
+  let statusSuffix = 'All';
+  if (state.activeStatusFilter === 'pending') statusSuffix = 'Pending';
+  else if (state.activeStatusFilter === 'generated') statusSuffix = 'Generated';
+
   const headers = ['ID', 'Membership No', 'Name', 'Father Name', 'Mobile', 'WhatsApp', 'State', 'District', 'City', 'Village', 'Constituency', 'Conscode', 'Designation', 'DOB', 'Caste', 'Booth', 'Status', 'Created At'];
-  const rows = state.cardLogs.map(l => [
+  const rows = filteredLogs.map(l => [
     l.id,
     `"${(l.membership_no || '').replace(/"/g, '""')}"`,
     `"${(l.name || '').replace(/"/g, '""')}"`,
@@ -728,21 +742,22 @@ el.btnExportCsv.addEventListener('click', () => {
     `"${l.created_at || ''}"`
   ]);
 
-  const csvContent = 'data:text/csv;charset=utf-8,﻿' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+  const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
   const encodedUri = encodeURI(csvContent);
   const link = document.createElement('a');
   link.setAttribute('href', encodedUri);
-  link.setAttribute('download', `INLD_Card_Applications_${new Date().toISOString().slice(0, 10)}.csv`);
+  link.setAttribute('download', `INLD_Card_Applications_${statusSuffix}_${new Date().toISOString().slice(0, 10)}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  showToast('✓ CSV सफलतापूर्वक डाउनलोड हो गई!');
+  showToast(`✓ CSV (${statusSuffix}) सफलतापूर्वक डाउनलोड हो गई!`);
 });
 
-// Export All Records as PDF Table (Matching Screenshot: "Candidate / Member Details")
+// Export Records as PDF Table (Filtered by Active Tab & High Visibility Headers)
 function exportAllRecordsPdf() {
-  if (!state.cardLogs || state.cardLogs.length === 0) {
-    showToast('एक्सपोर्ट करने के लिए कोई रिकॉर्ड उपलब्ध नहीं है', false);
+  const filteredLogs = getActiveFilteredLogs();
+  if (!filteredLogs || filteredLogs.length === 0) {
+    showToast('इस टैब में एक्सपोर्ट करने के लिए कोई रिकॉर्ड उपलब्ध नहीं है', false);
     return;
   }
 
@@ -753,32 +768,54 @@ function exportAllRecordsPdf() {
       format: 'a4' // 297mm x 210mm
     });
 
+    let tabLabel = 'All Applications (सभी आवेदन)';
+    let statusSuffix = 'All';
+    if (state.activeStatusFilter === 'pending') {
+      tabLabel = 'Pending Applications (लंबित आवेदन)';
+      statusSuffix = 'Pending';
+    } else if (state.activeStatusFilter === 'generated') {
+      tabLabel = 'Generated Cards (कार्ड तैयार)';
+      statusSuffix = 'Generated';
+    }
+
     // Document Header
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(22);
+    doc.setFontSize(20);
     doc.setTextColor(15, 23, 42);
-    doc.text('Candidate / Member Details', 148.5, 20, { align: 'center' });
+    doc.text('Candidate / Member Details', 148.5, 16, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Status Filter: ${tabLabel}  |  Total: ${filteredLogs.length} Records  |  Exported on: ${new Date().toLocaleDateString('en-IN')}`, 148.5, 23, { align: 'center' });
 
     // Columns: S.No.(14), Name(40), Father Name(40), District(30), Constituency(35), Village(35), Phone Number(35), Photo(25)
     // Total = 254mm, left margin = (297 - 254) / 2 = 21.5mm
     const startX = 21.5;
     const colWidths = [14, 40, 40, 30, 35, 35, 35, 25];
+    const totalTableWidth = colWidths.reduce((sum, w) => sum + w, 0);
     const headers = ['S.No.', 'Name', 'Father Name', 'District', 'Constituency', 'Village', 'Phone Number', 'Photo'];
 
-    let currentY = 32;
+    let currentY = 29;
     const rowHeight = 12;
 
     function drawTableHeader(y) {
+      // 1. Fill entire header background with light blue (#e0f2fe)
       doc.setFillColor(224, 242, 254);
+      doc.rect(startX, y, totalTableWidth, 9, 'F');
+
+      // 2. Stroke individual cell borders with thin black line ('D' - draw outline only)
       doc.setDrawColor(0, 0, 0);
       doc.setLineWidth(0.3);
+
+      // 3. Render header text in bold dark font
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
-      doc.setTextColor(0, 0, 0);
+      doc.setTextColor(15, 23, 42);
 
       let x = startX;
       for (let i = 0; i < headers.length; i++) {
-        doc.rect(x, y, colWidths[i], 9, 'FD');
+        doc.rect(x, y, colWidths[i], 9, 'D');
         doc.text(headers[i], x + colWidths[i] / 2, y + 6, { align: 'center' });
         x += colWidths[i];
       }
@@ -787,10 +824,10 @@ function exportAllRecordsPdf() {
 
     currentY = drawTableHeader(currentY);
 
-    state.cardLogs.forEach((log, index) => {
+    filteredLogs.forEach((log, index) => {
       if (currentY + rowHeight > 195) {
         doc.addPage([297, 210], 'landscape');
-        currentY = 20;
+        currentY = 16;
         currentY = drawTableHeader(currentY);
       }
 
@@ -841,8 +878,8 @@ function exportAllRecordsPdf() {
       currentY += rowHeight;
     });
 
-    doc.save(`INLD_Candidate_Member_Details_${new Date().toISOString().slice(0, 10)}.pdf`);
-    showToast('✓ सम्पूर्ण सदस्य विवरण तालिका PDF डाउनलोड हो गई!');
+    doc.save(`INLD_Candidate_Member_Details_${statusSuffix}_${new Date().toISOString().slice(0, 10)}.pdf`);
+    showToast(`✓ सदस्य विवरण तालिका (${statusSuffix}) PDF डाउनलोड हो गई!`);
   } catch (err) {
     console.error('Export all PDF error:', err);
     showToast('PDF डाउनलोड करने में त्रुटि', false);
