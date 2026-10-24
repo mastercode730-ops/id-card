@@ -284,8 +284,46 @@
               <div id="paymentScreenshotPreviewContainer" style="display: none; position: relative;">
                 <img id="paymentScreenshotThumb" src="" alt="Payment Confirmation" style="max-height: 180px; max-width: 100%; border-radius: 8px; border: 1.5px solid #0b4d2e; box-shadow: 0 4px 10px rgba(0,0,0,0.08); display: inline-block;">
                 <div style="margin-top: 8px;">
-                  <span style="color: #16a34a; font-weight: 700; font-size: 0.85rem;">✓ स्क्रीनशॉट सफलतापूर्वक अपलोड हुआ</span>
-                  <button type="button" id="btnChangePaymentScreenshot" style="margin-left: 10px; background: none; border: none; color: #dc2626; text-decoration: underline; font-size: 0.82rem; cursor: pointer;">बदलें</button>
+                  <button type="button" id="btnChangePaymentScreenshot" style="background: #fee2e2; border: 1px solid #fca5a5; color: #dc2626; padding: 4px 12px; border-radius: 6px; font-size: 0.82rem; font-weight: 700; cursor: pointer;">🔄 स्क्रीनशॉट बदलें</button>
+                </div>
+
+                <!-- OCR Scanning Indicator -->
+                <div id="ocrScanningStatus" style="display: none; margin-top: 12px; padding: 10px 14px; background: #eff6ff; border: 1.5px solid #93c5fd; border-radius: 8px; color: #1e40af; font-size: 0.85rem; font-weight: 600; text-align: center;">
+                  <span style="display: inline-block; animation: spin 1s infinite linear;">🔄</span> रसीद की स्वचालित OCR जाँच हो रही है (Scanning payment text... <span id="ocrProgressPercent">0%</span>)
+                </div>
+
+                <!-- OCR Verified Badge -->
+                <div id="ocrVerifiedBadge" style="display: none; margin-top: 12px; padding: 12px 14px; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px; color: #166534; font-size: 0.85rem; text-align: left;">
+                  <div style="font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                    <span>✅ मान्य UPI भुगतान रसीद (Valid Payment Receipt)</span>
+                  </div>
+                  <div style="margin-top: 6px; font-size: 0.8rem; color: #15803d; line-height: 1.5;">
+                    • प्रापक: <strong>adityaanuraag143@oksbi (Anuraag Kumar Mishra)</strong><br>
+                    • स्थिति: <strong>सफल भुगतान (Successful Payment)</strong>
+                  </div>
+                </div>
+
+                <!-- OCR Warning / Suspicious Badge -->
+                <div id="ocrWarningBadge" style="display: none; margin-top: 12px; padding: 12px 14px; background: #fef2f2; border: 1.5px solid #fca5a5; border-radius: 8px; color: #991b1b; font-size: 0.85rem; text-align: left;">
+                  <div style="font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                    <span>⚠️ अमान्य रसीद (Invalid Receipt Image Detected)</span>
+                  </div>
+                  <div id="ocrWarningText" style="margin-top: 4px; font-size: 0.8rem; color: #b91c1c; line-height: 1.45;">
+                    यह कोई मान्य UPI भुगतान रसीद प्रतीत नहीं हो रही है। कृपया Google Pay / PhonePe / Paytm से ₹50 के सफल भुगतान का वास्तविक स्क्रीनशॉट ही अपलोड करें।
+                  </div>
+                </div>
+
+                <!-- 12-digit UTR Input Field -->
+                <div id="utrContainer" style="display: none; margin-top: 14px; text-align: left; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px;">
+                  <label for="inputUtrNumber" style="display: block; font-size: 0.84rem; font-weight: 700; color: #0b4d2e; margin-bottom: 4px;">
+                    UPI Ref / UTR नंबर (12 अंक) <span class="req-star">*</span>
+                  </label>
+                  <input type="text" id="inputUtrNumber" maxlength="12" placeholder="जैसे 429381029384" style="width: 100%; padding: 8px 12px; border: 1.5px solid #94a3b8; border-radius: 6px; font-weight: 700; font-family: monospace; letter-spacing: 1.5px; font-size: 0.95rem; box-sizing: border-box; background: #fff;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                    <small style="color: #64748b; font-size: 0.74rem;">रसीद से स्वतः निकाला गया 12 अंकों का नंबर (आवश्यकतानुसार सुधारें)</small>
+                    <span id="utrDigitCounter" style="font-size: 0.74rem; font-weight: 700; color: #0b4d2e;">0 / 12 अंक</span>
+                  </div>
+                  <div class="field-error" id="error-inputUtrNumber" style="display: none; margin-top: 4px;"></div>
                 </div>
               </div>
             </div>

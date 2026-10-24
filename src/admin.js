@@ -417,9 +417,12 @@ function renderCardLogsTable(logs) {
       : '<span class="status-badge-pending">⏳ लंबित</span>';
 
     const paymentProofBtn = log.payment_screenshot_url
-      ? `<button type="button" class="btn-action-payment" style="background: #0b4d2e; color: #ffffff; border: none; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="भुगतान रसीद देखें" onclick="window.viewPaymentScreenshot(${log.id})">
-           💳 ₹${log.payment_amount || 50}
-         </button>`
+      ? `<div style="display: flex; flex-direction: column; gap: 3px; align-items: flex-start;">
+           <button type="button" class="btn-action-payment" style="background: #0b4d2e; color: #ffffff; border: none; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="भुगतान रसीद एवं UTR देखें" onclick="window.viewPaymentScreenshot(${log.id})">
+             💳 ₹${log.payment_amount || 50}
+           </button>
+           ${log.utr_number ? `<code style="font-size: 0.72rem; color: #0b4d2e; font-weight: 700; background: #f0fdf4; padding: 2px 5px; border-radius: 4px; border: 1px solid #bbf7d0;" title="UPI Ref / UTR No">${escapeHtml(log.utr_number)}</code>` : ''}
+         </div>`
       : `<span style="color: #94a3b8; font-size: 0.78rem;">लंबित</span>`;
 
     return `
@@ -1554,6 +1557,9 @@ function escapeHtml(text) {
 }
 
 // View Payment Screenshot Modal Handler
+// View Payment Screenshot Modal Handler
+let activePaymentModalLog = null;
+
 window.viewPaymentScreenshot = function(id) {
   const log = state.cardLogs.find(l => l.id === id);
   if (!log || !log.payment_screenshot_url) {
@@ -1561,9 +1567,11 @@ window.viewPaymentScreenshot = function(id) {
     return;
   }
 
+  activePaymentModalLog = log;
   const modal = document.getElementById('paymentScreenshotModal');
   const img = document.getElementById('paymentModalImg');
   const meta = document.getElementById('paymentModalMeta');
+  const utrValEl = document.getElementById('paymentModalUtrVal');
 
   if (img) img.src = log.payment_screenshot_url;
   if (meta) {
@@ -1573,10 +1581,14 @@ window.viewPaymentScreenshot = function(id) {
     `;
   }
 
+  if (utrValEl) {
+    utrValEl.textContent = log.utr_number || 'उपलब्ध नहीं (Not Detected)';
+  }
+
   if (modal) modal.style.display = 'flex';
 };
 
-// Payment modal close listeners
+// Payment modal close and action listeners
 const paymentModal = document.getElementById('paymentScreenshotModal');
 document.getElementById('btnClosePaymentModal')?.addEventListener('click', () => {
   if (paymentModal) paymentModal.style.display = 'none';
@@ -1586,6 +1598,47 @@ document.getElementById('btnDismissPaymentModal')?.addEventListener('click', () 
 });
 document.getElementById('backdropPaymentModal')?.addEventListener('click', () => {
   if (paymentModal) paymentModal.style.display = 'none';
+});
+
+// Copy UTR button in modal
+document.getElementById('btnCopyModalUtr')?.addEventListener('click', () => {
+  if (activePaymentModalLog && activePaymentModalLog.utr_number) {
+    navigator.clipboard.writeText(activePaymentModalLog.utr_number).then(() => {
+      showToast(`✓ UTR (${activePaymentModalLog.utr_number}) कॉपी हो गया!`);
+    }).catch(() => {
+      showToast(`UTR: ${activePaymentModalLog.utr_number}`);
+    });
+  } else {
+    showToast('कोई UTR नंबर उपलब्ध नहीं है', false);
+  }
+});
+
+// Reject Payment Screenshot button in modal
+document.getElementById('btnRejectPaymentModal')?.addEventListener('click', async () => {
+  if (!activePaymentModalLog) return;
+  const confirmReject = confirm(`क्या आप आवेदक "${activePaymentModalLog.name}" की इस भुगतान रसीद को अमान्य (Reject) करना चाहते हैं?`);
+  if (!confirmReject) return;
+
+  try {
+    const res = await authFetch(`${API_BASE}/cards/${activePaymentModalLog.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        payment_screenshot_url: '',
+        status: 'pending'
+      })
+    });
+
+    if (res.success) {
+      showToast('⚠️ भुगतान रसीद अमान्य कर दी गई!');
+      activePaymentModalLog.payment_screenshot_url = '';
+      if (paymentModal) paymentModal.style.display = 'none';
+      await loadCardLogs();
+    } else {
+      showToast(res.error || 'त्रुटि हुई', false);
+    }
+  } catch (err) {
+    showToast('नेटवर्क त्रुटि', false);
+  }
 });
 
 // Auto-check auth on page load

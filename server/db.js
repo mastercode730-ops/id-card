@@ -202,6 +202,7 @@ export async function initDb() {
       status TEXT DEFAULT 'pending',
       payment_screenshot_url TEXT,
       payment_amount INTEGER DEFAULT 50,
+      utr_number TEXT,
       ip_address TEXT,
       created_at ${timeType} DEFAULT CURRENT_TIMESTAMP
     );
@@ -215,6 +216,7 @@ export async function initDb() {
   try { await exec(`ALTER TABLE card_logs ADD COLUMN aadhaar_no TEXT`); } catch (e) {}
   try { await exec(`ALTER TABLE card_logs ADD COLUMN payment_screenshot_url TEXT`); } catch (e) {}
   try { await exec(`ALTER TABLE card_logs ADD COLUMN payment_amount INTEGER DEFAULT 50`); } catch (e) {}
+  try { await exec(`ALTER TABLE card_logs ADD COLUMN utr_number TEXT`); } catch (e) {}
 
   // 6. Dynamic Field Configuration Table
   await exec(`

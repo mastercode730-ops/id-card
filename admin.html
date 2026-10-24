@@ -681,11 +681,19 @@
       </div>
       <div class="modal-body" style="padding: 20px; text-align: center;">
         <div id="paymentModalMeta" style="margin-bottom: 12px; font-weight: 700; color: #0b4d2e; font-size: 0.95rem;"></div>
+        <div id="paymentModalUtrBox" style="margin-bottom: 14px; padding: 10px 14px; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+          <div style="text-align: left;">
+            <span style="font-size: 0.78rem; color: #166534; font-weight: 700; display: block;">UPI Ref / UTR नंबर (12 अंक):</span>
+            <code id="paymentModalUtrVal" style="font-size: 1.05rem; font-weight: 800; color: #0b4d2e; letter-spacing: 1px;">-</code>
+          </div>
+          <button type="button" id="btnCopyModalUtr" style="background: #0b4d2e; color: #fff; border: none; padding: 5px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; cursor: pointer;">📋 UTR कॉपी करें</button>
+        </div>
         <div style="background: #f1f5f9; padding: 10px; border-radius: 8px; display: inline-block; max-width: 100%;">
           <img id="paymentModalImg" src="" alt="Payment Proof" style="max-width: 100%; max-height: 480px; border-radius: 6px; display: block; margin: 0 auto; object-fit: contain;">
         </div>
       </div>
-      <div class="modal-footer" style="padding: 12px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end;">
+      <div class="modal-footer" style="padding: 12px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+        <button type="button" id="btnRejectPaymentModal" style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 8px 16px; border-radius: 6px; font-weight: 700; font-size: 0.84rem; cursor: pointer;">❌ अमान्य रसीद (Reject)</button>
         <button type="button" class="btn-cancel" id="btnDismissPaymentModal" style="padding: 8px 18px; border-radius: 6px; cursor: pointer; border: 1px solid #cbd5e1; background: #fff; font-weight: 600;">बंद करें (Close)</button>
       </div>
     </div>

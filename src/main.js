@@ -3,6 +3,7 @@ import { jsPDF } from 'jspdf';
 import { preloadAssets, renderFrontCard, renderBackCard } from './cardGenerator.js';
 import { HARYANA_CONSTITUENCIES } from './constituencies.js';
 import { formatEmployeeId } from './idHelper.js';
+import { scanPaymentReceipt } from './receiptOcr.js';
 
 // Supported Country Codes
 const COUNTRY_CODES = [
@@ -90,6 +91,9 @@ const state = {
   cardGenerated: false,
   fieldConfigs: [],
   paymentScreenshot: null,
+  paymentUtr: '',
+  isReceiptValid: false,
+  isOcrScanning: false,
   currentSeqNumber: 1
 };
 
@@ -153,7 +157,17 @@ const elements = {
   paymentScreenshotPreviewContainer: document.getElementById('paymentScreenshotPreviewContainer'),
   paymentScreenshotThumb: document.getElementById('paymentScreenshotThumb'),
   btnChangePaymentScreenshot: document.getElementById('btnChangePaymentScreenshot'),
-  btnCopyUpi: document.getElementById('btnCopyUpi')
+  btnCopyUpi: document.getElementById('btnCopyUpi'),
+
+  // OCR Receipt Text Detection Elements
+  ocrScanningStatus: document.getElementById('ocrScanningStatus'),
+  ocrProgressPercent: document.getElementById('ocrProgressPercent'),
+  ocrVerifiedBadge: document.getElementById('ocrVerifiedBadge'),
+  ocrWarningBadge: document.getElementById('ocrWarningBadge'),
+  ocrWarningText: document.getElementById('ocrWarningText'),
+  utrContainer: document.getElementById('utrContainer'),
+  inputUtrNumber: document.getElementById('inputUtrNumber'),
+  utrDigitCounter: document.getElementById('utrDigitCounter')
 };
 
 // Toast notification helper
@@ -223,6 +237,7 @@ function getFormData() {
     membershipNo: membershipNo,
     paymentScreenshot: state.paymentScreenshot,
     paymentAmount: 50,
+    utrNumber: state.paymentUtr || (elements.inputUtrNumber ? elements.inputUtrNumber.value.trim() : ''),
     signatoryName: 'RamPal Majra',
     signatoryTitle: 'Pradeshadhyaksh, INLD',
     photoImg: state.userPhoto || state.sampleAssets?.samplePhoto,
@@ -522,11 +537,19 @@ function validateForm() {
     clearFieldError('chkAgreeRules');
   }
 
-  // 15. Mandatory Payment Confirmation Screenshot validation
+  // 15. Mandatory Payment Confirmation Screenshot & UTR validation
   if (!state.paymentScreenshot) {
     markError('paymentScreenshot', 'कृपया सफल UPI भुगतान (कम से कम ₹50) की रसीद / स्क्रीनशॉट अपलोड करें');
+  } else if (state.isOcrScanning) {
+    markError('paymentScreenshot', 'रसीद की स्वचालित OCR जाँच हो रही है, कृपया कुछ सेकंड प्रतीक्षा करें...');
+  } else if (!state.isReceiptValid && (!state.paymentUtr || state.paymentUtr.length !== 12)) {
+    markError('paymentScreenshot', 'यह मान्य UPI भुगतान रसीद प्रतीत नहीं हो रही है। कृपया सही रसीद दें या नीचे 12 अंकों का UTR नंबर दर्ज करें');
+    if (elements.inputUtrNumber && (!elements.inputUtrNumber.value || elements.inputUtrNumber.value.trim().length !== 12)) {
+      markError('inputUtrNumber', 'कृपया 12 अंकों का मान्य UPI Ref / UTR नंबर दर्ज करें');
+    }
   } else {
     clearFieldError('paymentScreenshot');
+    clearFieldError('inputUtrNumber');
   }
 
   return { isValid, firstInvalidEl };
@@ -728,12 +751,12 @@ function setupEventListeners() {
     fetchNextIdPreview();
   });
 
-  // Payment Screenshot Upload Handling
+  // Payment Screenshot Upload & Automated OCR Receipt Detection
   elements.paymentUploadZone?.addEventListener('click', () => {
     elements.paymentScreenshotInput?.click();
   });
 
-  elements.paymentScreenshotInput?.addEventListener('change', (e) => {
+  elements.paymentScreenshotInput?.addEventListener('change', async (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
 
@@ -747,25 +770,110 @@ function setupEventListeners() {
     }
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
-      state.paymentScreenshot = evt.target.result;
+    reader.onload = async (evt) => {
+      const dataUrl = evt.target.result;
+      state.paymentScreenshot = dataUrl;
+      state.paymentUtr = '';
+      state.isReceiptValid = false;
+
       if (elements.paymentScreenshotThumb) {
-        elements.paymentScreenshotThumb.src = evt.target.result;
+        elements.paymentScreenshotThumb.src = dataUrl;
       }
       if (elements.paymentUploadPrompt) elements.paymentUploadPrompt.style.display = 'none';
       if (elements.paymentScreenshotPreviewContainer) elements.paymentScreenshotPreviewContainer.style.display = 'block';
-      clearFieldError('paymentScreenshot');
-      showToast('✓ भुगतान स्क्रीनशॉट सफलतापूर्वक लोड हुआ!');
+
+      // Reset OCR indicators
+      if (elements.ocrVerifiedBadge) elements.ocrVerifiedBadge.style.display = 'none';
+      if (elements.ocrWarningBadge) elements.ocrWarningBadge.style.display = 'none';
+      if (elements.utrContainer) elements.utrContainer.style.display = 'none';
+      if (elements.inputUtrNumber) elements.inputUtrNumber.value = '';
+      if (elements.utrDigitCounter) elements.utrDigitCounter.textContent = '0 / 12 अंक';
+
+      // Start OCR scanning
+      state.isOcrScanning = true;
+      if (elements.ocrScanningStatus) {
+        elements.ocrScanningStatus.style.display = 'block';
+        if (elements.ocrProgressPercent) elements.ocrProgressPercent.textContent = '0%';
+      }
+
+      try {
+        const ocrRes = await scanPaymentReceipt(dataUrl, (pct) => {
+          if (elements.ocrProgressPercent) elements.ocrProgressPercent.textContent = `${pct}%`;
+        });
+
+        state.isOcrScanning = false;
+        if (elements.ocrScanningStatus) elements.ocrScanningStatus.style.display = 'none';
+
+        if (ocrRes.isValid) {
+          state.isReceiptValid = true;
+          if (elements.ocrVerifiedBadge) elements.ocrVerifiedBadge.style.display = 'block';
+          if (elements.ocrWarningBadge) elements.ocrWarningBadge.style.display = 'none';
+          if (elements.utrContainer) elements.utrContainer.style.display = 'block';
+
+          if (ocrRes.utr) {
+            state.paymentUtr = ocrRes.utr;
+            if (elements.inputUtrNumber) elements.inputUtrNumber.value = ocrRes.utr;
+            if (elements.utrDigitCounter) elements.utrDigitCounter.textContent = '12 / 12 अंक (सत्यापित)';
+          }
+          clearFieldError('paymentScreenshot');
+          showToast('✓ रसीद OCR द्वारा सत्यापित: मान्य UPI भुगतान!');
+        } else {
+          // Suspicious or random image uploaded
+          state.isReceiptValid = false;
+          if (elements.ocrVerifiedBadge) elements.ocrVerifiedBadge.style.display = 'none';
+          if (elements.ocrWarningBadge) {
+            elements.ocrWarningBadge.style.display = 'block';
+            if (elements.ocrWarningText) elements.ocrWarningText.textContent = ocrRes.message;
+          }
+          // Display UTR container so legitimate users can manually input 12-digit UTR if receipt was faint
+          if (elements.utrContainer) elements.utrContainer.style.display = 'block';
+          setFieldError('paymentScreenshot', ocrRes.message);
+          showToast('⚠️ अमान्य रसीद! कृपया सही भुगतान रसीद अपलोड करें।', false);
+        }
+      } catch (ocrErr) {
+        console.warn('OCR error fallback:', ocrErr);
+        state.isOcrScanning = false;
+        if (elements.ocrScanningStatus) elements.ocrScanningStatus.style.display = 'none';
+        if (elements.utrContainer) elements.utrContainer.style.display = 'block';
+        state.isReceiptValid = true;
+      }
     };
     reader.readAsDataURL(file);
+  });
+
+  // UTR manual entry / correction listener
+  elements.inputUtrNumber?.addEventListener('input', (e) => {
+    let val = e.target.value.replace(/\D/g, '').slice(0, 12);
+    e.target.value = val;
+    state.paymentUtr = val;
+    if (elements.utrDigitCounter) {
+      elements.utrDigitCounter.textContent = `${val.length} / 12 अंक`;
+    }
+    if (val.length === 12) {
+      clearFieldError('inputUtrNumber');
+      clearFieldError('paymentScreenshot');
+      state.isReceiptValid = true;
+      if (elements.ocrWarningBadge) elements.ocrWarningBadge.style.display = 'none';
+      if (elements.ocrVerifiedBadge) elements.ocrVerifiedBadge.style.display = 'block';
+    }
   });
 
   elements.btnChangePaymentScreenshot?.addEventListener('click', (e) => {
     e.stopPropagation();
     state.paymentScreenshot = null;
+    state.paymentUtr = '';
+    state.isReceiptValid = false;
+    state.isOcrScanning = false;
     if (elements.paymentScreenshotInput) elements.paymentScreenshotInput.value = '';
     if (elements.paymentUploadPrompt) elements.paymentUploadPrompt.style.display = 'block';
     if (elements.paymentScreenshotPreviewContainer) elements.paymentScreenshotPreviewContainer.style.display = 'none';
+    if (elements.ocrScanningStatus) elements.ocrScanningStatus.style.display = 'none';
+    if (elements.ocrVerifiedBadge) elements.ocrVerifiedBadge.style.display = 'none';
+    if (elements.ocrWarningBadge) elements.ocrWarningBadge.style.display = 'none';
+    if (elements.utrContainer) elements.utrContainer.style.display = 'none';
+    if (elements.inputUtrNumber) elements.inputUtrNumber.value = '';
+    clearFieldError('paymentScreenshot');
+    clearFieldError('inputUtrNumber');
   });
 
   // Copy UPI ID button
@@ -854,6 +962,7 @@ function setupEventListeners() {
               ${cardData.village ? `<div class="summary-line"><span>गांव:</span> <strong>${cardData.village}</strong></div>` : ''}
               <div class="summary-line"><span>विधानसभा क्षेत्र:</span> <strong>${cardData.constituency}</strong></div>
               ${cardData.aadhaarNo ? `<div class="summary-line"><span>आधार नंबर:</span> <strong>${cardData.aadhaarNo}</strong></div>` : ''}
+              ${cardData.utrNumber ? `<div class="summary-line"><span>UPI Ref / UTR नंबर:</span> <strong style="color: #0b4d2e; font-family: monospace; letter-spacing: 1px;">${cardData.utrNumber}</strong></div>` : ''}
               <div class="summary-line"><span>सदस्यता शुल्क:</span> <strong style="color: #16a34a;">₹50 (UPI भुगतान रसीद सत्यापित)</strong></div>
             `;
           }
@@ -875,7 +984,9 @@ function setupEventListeners() {
             (cardData.village ? `🏡 *गांव:* ${cardData.village}\n` : '') +
             (cardData.city ? `🏙️ *शहर:* ${cardData.city}\n` : '') +
             (cardData.aadhaarNo ? `🆔 *आधार नंबर:* ${cardData.aadhaarNo}\n` : '') +
-            `\nइनेलो पार्टी एडमिन द्वारा सत्यापन के पश्चात आपका आधिकारिक सदस्यता पहचान पत्र जारी कर दिया जाएगा।\n\n` +
+            (cardData.utrNumber ? `💳 *UPI Ref / UTR No:* ${cardData.utrNumber}\n` : '') +
+            `💰 *सदस्यता शुल्क:* ₹50 (सत्यापित)\n\n` +
+            `इनेलो पार्टी एडमिन द्वारा सत्यापन के पश्चात आपका आधिकारिक सदस्यता पहचान पत्र जारी कर दिया जाएगा।\n\n` +
             `_चौधरी देवी लाल अमर रहें • जय जवान जय किसान_`
           );
 
@@ -920,6 +1031,9 @@ function setupEventListeners() {
     elements.form.reset();
     state.userPhoto = null;
     state.paymentScreenshot = null;
+    state.paymentUtr = '';
+    state.isReceiptValid = false;
+    state.isOcrScanning = false;
     if (elements.photoInput) elements.photoInput.value = '';
     if (elements.photoThumb) elements.photoThumb.src = '';
     if (elements.photoThumbContainer) elements.photoThumbContainer.style.display = 'none';
@@ -927,6 +1041,13 @@ function setupEventListeners() {
     if (elements.paymentScreenshotInput) elements.paymentScreenshotInput.value = '';
     if (elements.paymentUploadPrompt) elements.paymentUploadPrompt.style.display = 'block';
     if (elements.paymentScreenshotPreviewContainer) elements.paymentScreenshotPreviewContainer.style.display = 'none';
+    if (elements.ocrScanningStatus) elements.ocrScanningStatus.style.display = 'none';
+    if (elements.ocrVerifiedBadge) elements.ocrVerifiedBadge.style.display = 'none';
+    if (elements.ocrWarningBadge) elements.ocrWarningBadge.style.display = 'none';
+    if (elements.utrContainer) elements.utrContainer.style.display = 'none';
+    if (elements.inputUtrNumber) elements.inputUtrNumber.value = '';
+    clearFieldError('paymentScreenshot');
+    clearFieldError('inputUtrNumber');
 
     if (elements.submissionSuccessSection) elements.submissionSuccessSection.style.display = 'none';
     if (elements.formWrapper) elements.formWrapper.style.display = 'block';

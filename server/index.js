@@ -432,6 +432,21 @@ app.post('/api/cards', optionalUserAuth, async (req, res) => {
     const aadhaar = data.aadhaarNo || data.aadhaar_no || data.inputAadhaar || '';
     const paymentScreenshot = data.paymentScreenshot || data.paymentScreenshotUrl || data.payment_screenshot_url || '';
     const paymentAmount = parseInt(data.paymentAmount || 50, 10) || 50;
+    const utrNumber = (data.utrNumber || data.utr_number || '').toString().trim().replace(/\D/g, '');
+
+    // Prevent duplicate UTR reuse across applications
+    if (utrNumber && utrNumber.length >= 10) {
+      const existingUtr = await get(
+        `SELECT id, membership_no, name, created_at FROM card_logs WHERE utr_number = ?`,
+        [utrNumber]
+      );
+      if (existingUtr) {
+        return res.status(400).json({
+          success: false,
+          error: `यह UPI Ref / UTR नंबर (${utrNumber}) पहले ही आवेदन #${existingUtr.id} (${existingUtr.membership_no || existingUtr.name}) में दर्ज हो चुका है! कृपया अपने स्वयं के सफल भुगतान की रसीद दें।`
+        });
+      }
+    }
 
     // Generate guaranteed unique sequential Employee ID: INLD06/<District>/<Constituency>/<8-digit sequence>
     const uniqueMembershipNo = await generateUniqueMembershipId(data.district, data.constituency);
@@ -442,8 +457,8 @@ app.post('/api/cards', optionalUserAuth, async (req, res) => {
         user_id, membership_no, name, father_name, mobile, state, district,
         city, village, constituency, conscode, designation, dob, caste, booth,
         whatsapp_number, photo_url, status, aadhaar_no, payment_screenshot_url,
-        payment_amount, ip_address
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        payment_amount, utr_number, ip_address
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         user ? user.id : null,
         uniqueMembershipNo,
@@ -466,6 +481,7 @@ app.post('/api/cards', optionalUserAuth, async (req, res) => {
         aadhaar,
         paymentScreenshot,
         paymentAmount,
+        utrNumber,
         ipAddress
       ]
     );
@@ -578,7 +594,7 @@ app.put('/api/cards/:id', authenticateAdmin, async (req, res) => {
            city = ?, village = ?, constituency = ?, conscode = ?,
            designation = ?, dob = ?, caste = ?, booth = ?,
            whatsapp_number = ?, photo_url = ?, status = ?, aadhaar_no = ?,
-           payment_screenshot_url = ?
+           payment_screenshot_url = ?, utr_number = ?
        WHERE id = ?`,
       [
         d.name !== undefined ? d.name : existing.name,
@@ -599,6 +615,7 @@ app.put('/api/cards/:id', authenticateAdmin, async (req, res) => {
         d.status !== undefined ? d.status : (existing.status || 'pending'),
         d.aadhaar_no !== undefined ? d.aadhaar_no : (d.aadhaarNo !== undefined ? d.aadhaarNo : (existing.aadhaar_no || '')),
         paymentScreenshot,
+        d.utr_number !== undefined ? d.utr_number : (d.utrNumber !== undefined ? d.utrNumber : (existing.utr_number || '')),
         id
       ]
     );
