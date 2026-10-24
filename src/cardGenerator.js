@@ -8,7 +8,8 @@ const imageCache = {
   logoWhite: null,
   logoGreen: null,
   samplePhoto: null,
-  backCardStatic: null
+  backCardStatic: null,
+  signature: null
 };
 
 // Helper to load an image
@@ -31,7 +32,8 @@ export async function preloadAssets() {
     { key: 'logoWhite', src: '/assets/logo_img.png' },
     { key: 'logoGreen', src: '/assets/logo_green_img.png' },
     { key: 'samplePhoto', src: '/assets/sample_member_photo.jpg' },
-    { key: 'backCardStatic', src: '/assets/sample_back_card.jpg' }
+    { key: 'backCardStatic', src: '/assets/sample_back_card.jpg' },
+    { key: 'signature', src: '/assets/rampal_majra_signature.png' }
   ];
 
   await Promise.all(
@@ -223,30 +225,36 @@ export async function renderFrontCard(canvas, data) {
   }
   ctx.restore();
 
-  // 6. Signatory Name & Title below Photo
+  // 6. Signatory Signature & Title below Photo
   const signatoryX = px + pw / 2;
-  const sigName = data.signatoryName || 'RamPal Majra';
   const sigTitle = data.signatoryTitle || 'Pradeshadhyaksh, INLD';
 
   ctx.save();
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#0b4d2e';
-  ctx.font = 'italic bold 23px "Outfit", Georgia, serif';
-  ctx.fillText(sigName, signatoryX, 724);
+  if (imageCache.signature) {
+    const sigW = 180;
+    const sigH = (imageCache.signature.height / imageCache.signature.width) * sigW;
+    ctx.drawImage(imageCache.signature, signatoryX - sigW / 2, 690, sigW, sigH);
+  } else {
+    const sigName = data.signatoryName || 'RamPal Majra';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#0b4d2e';
+    ctx.font = 'italic bold 23px "Outfit", Georgia, serif';
+    ctx.fillText(sigName, signatoryX, 724);
+  }
 
   // Underline beneath signatory
-  const textWidth = ctx.measureText(sigName).width;
   ctx.strokeStyle = '#0b4d2e';
   ctx.lineWidth = 1.8;
   ctx.beginPath();
-  ctx.moveTo(signatoryX - textWidth / 2 - 8, 730);
-  ctx.lineTo(signatoryX + textWidth / 2 + 8, 730);
+  ctx.moveTo(signatoryX - 85, 734);
+  ctx.lineTo(signatoryX + 85, 734);
   ctx.stroke();
 
   // Title
+  ctx.textAlign = 'center';
   ctx.fillStyle = '#22382a';
   ctx.font = '600 14px "Noto Sans Devanagari", "Inter", Arial, sans-serif';
-  ctx.fillText(sigTitle, signatoryX, 746);
+  ctx.fillText(sigTitle, signatoryX, 750);
   ctx.restore();
 
   // 7. Member Details Section (Right Column)
@@ -567,12 +575,20 @@ export async function renderBackCard(canvas, data) {
   ctx.strokeStyle = '#cbd5e1';
   ctx.stroke();
 
-  ctx.fillStyle = '#0b4d2e';
-  ctx.font = 'italic bold 20px "Outfit", Georgia, serif';
-  ctx.fillText('RamPal Majra', stampBoxX + 140, sigBoxY + 50);
+  ctx.save();
+  if (imageCache.signature) {
+    const sigW = 150;
+    const sigH = (imageCache.signature.height / imageCache.signature.width) * sigW;
+    ctx.drawImage(imageCache.signature, stampBoxX + 140 - sigW / 2, sigBoxY + 30, sigW, sigH);
+  } else {
+    ctx.fillStyle = '#0b4d2e';
+    ctx.font = 'italic bold 20px "Outfit", Georgia, serif';
+    ctx.fillText('RamPal Majra', stampBoxX + 140, sigBoxY + 50);
+  }
   ctx.fillStyle = '#64748b';
   ctx.font = '600 14px "Noto Sans Devanagari", sans-serif';
   ctx.fillText('प्रदेशाध्यक्ष, इनेलो (हरियाणा)', stampBoxX + 140, sigBoxY + 95);
+  ctx.restore();
 
   // Slogan Banner
   drawRoundRect(ctx, rightX, 560, 420, 110, 12);

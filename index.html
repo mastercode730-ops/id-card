@@ -228,6 +228,71 @@
           <span id="trialStatusText">⏳ 7-दिन निःशुल्क ट्रायल सक्रिय</span>
         </div>
 
+        <!-- Payment Section (QR Code & Mandatory Screenshot Upload) -->
+        <div class="payment-verification-section" id="paymentSection" style="margin: 20px 0 16px; padding: 20px; background: #f8fafc; border: 2px dashed #0b4d2e; border-radius: 14px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 1.5rem;">💳</span>
+              <div>
+                <h4 style="margin: 0; color: #0b4d2e; font-size: 1.05rem; font-weight: 800;">सदस्यता शुल्क भुगतान (Membership Fee Payment)</h4>
+                <span style="font-size: 0.8rem; color: #64748b;">स्कैन करें और ₹50 या अधिक का सदस्यता शुल्क भुगतान करें</span>
+              </div>
+            </div>
+            <span style="background: #dcfce7; color: #166534; font-weight: 800; font-size: 0.85rem; padding: 4px 12px; border-radius: 20px; border: 1px solid #86efac;">
+              न्यूनतम राशि: ₹50
+            </span>
+          </div>
+
+          <!-- QR Code and Payment Details -->
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: #ffffff; border-radius: 12px; padding: 18px; border: 1px solid #e2e8f0; margin-bottom: 16px;">
+            <div id="paymentQrCodeContainer" style="background: #ffffff; padding: 10px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); text-align: center;">
+              <img id="paymentQrImage" src="/assets/inld_payment_qr.png" alt="INLD Payment UPI QR Code" style="width: 190px; height: 190px; object-fit: contain; display: block; margin: 0 auto;">
+            </div>
+
+            <div style="margin-top: 12px; text-align: center;">
+              <div style="font-weight: 700; color: #0f172a; font-size: 0.95rem;">इंडियन नेशनल लोकदल (INLD)</div>
+              <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 6px;">
+                <code style="background: #f1f5f9; padding: 5px 12px; border-radius: 6px; font-size: 0.9rem; color: #0b4d2e; font-weight: 700; border: 1px solid #cbd5e1;">inldparty@sbi</code>
+                <button type="button" id="btnCopyUpi" style="background: #0b4d2e; color: #fff; border: none; padding: 5px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer;">📋 कॉपी करें</button>
+              </div>
+              <div style="font-size: 0.78rem; color: #64748b; margin-top: 6px;">
+                Google Pay • PhonePe • Paytm • BHIM • Amazon Pay
+              </div>
+            </div>
+          </div>
+
+          <!-- Payment Screenshot Upload -->
+          <div class="field-group" id="group-paymentScreenshot" style="margin-bottom: 0;">
+            <label class="field-label" for="paymentScreenshotInput" style="color: #0b4d2e; font-weight: 700; font-size: 0.9rem; margin-bottom: 6px; display: block;">
+              भुगतान रसीद / स्क्रीनशॉट अपलोड करें (Payment Screenshot) <span class="req-star">*</span>
+            </label>
+            <div style="font-size: 0.8rem; color: #475569; margin-bottom: 8px;">
+              कृपया UPI भुगतान के बाद सफल ट्रांजेक्शन (₹50 या अधिक) का स्क्रीनशॉट यहाँ अपलोड करें। सत्यापन के लिए यह अनिवार्य है।
+            </div>
+            
+            <div class="payment-upload-zone" id="paymentUploadZone" style="border: 2px dashed #94a3b8; border-radius: 10px; padding: 18px; text-align: center; cursor: pointer; background: #ffffff; transition: all 0.2s;">
+              <input type="file" id="paymentScreenshotInput" accept="image/*" style="display: none;">
+              <div id="paymentUploadPrompt">
+                <span style="font-size: 2rem;">📸</span>
+                <div style="font-weight: 700; color: #1e293b; margin-top: 6px; font-size: 0.92rem;">
+                  भुगतान स्क्रीनशॉट चुनने के लिए क्लिक करें या ड्रैग करें
+                </div>
+                <div style="font-size: 0.78rem; color: #64748b; margin-top: 2px;">
+                  (JPG, PNG, WebP — अधिकतम 5MB)
+                </div>
+              </div>
+              <div id="paymentScreenshotPreviewContainer" style="display: none; position: relative;">
+                <img id="paymentScreenshotThumb" src="" alt="Payment Confirmation" style="max-height: 180px; max-width: 100%; border-radius: 8px; border: 1.5px solid #0b4d2e; box-shadow: 0 4px 10px rgba(0,0,0,0.08); display: inline-block;">
+                <div style="margin-top: 8px;">
+                  <span style="color: #16a34a; font-weight: 700; font-size: 0.85rem;">✓ स्क्रीनशॉट सफलतापूर्वक अपलोड हुआ</span>
+                  <button type="button" id="btnChangePaymentScreenshot" style="margin-left: 10px; background: none; border: none; color: #dc2626; text-decoration: underline; font-size: 0.82rem; cursor: pointer;">बदलें</button>
+                </div>
+              </div>
+            </div>
+            <div class="field-error" id="error-paymentScreenshot" style="display: none; margin-top: 6px;"></div>
+          </div>
+        </div>
+
         <!-- Party Rules Agreement Checkbox -->
         <div class="rules-agreement-box" style="margin: 18px 0 6px; padding: 14px 16px; background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 10px; display: flex; align-items: flex-start; gap: 12px;">
           <input type="checkbox" id="chkAgreeRules" required style="width: 20px; height: 20px; margin-top: 2px; accent-color: #0b4d2e; cursor: pointer; flex-shrink: 0;">

@@ -2,6 +2,7 @@ import confetti from 'canvas-confetti';
 import { jsPDF } from 'jspdf';
 import { preloadAssets, renderFrontCard, renderBackCard } from './cardGenerator.js';
 import { HARYANA_CONSTITUENCIES } from './constituencies.js';
+import { formatEmployeeId } from './idHelper.js';
 
 // Supported Country Codes
 const COUNTRY_CODES = [
@@ -86,9 +87,10 @@ const state = {
   activeTab: 'both', // 'both' | 'front' | 'back'
   userPhoto: null,
   isRendering: false,
-  sampleAssets: null,
   cardGenerated: false,
-  fieldConfigs: []
+  fieldConfigs: [],
+  paymentScreenshot: null,
+  currentSeqNumber: 1
 };
 
 // DOM Elements
@@ -142,7 +144,16 @@ const elements = {
   modalImg: document.getElementById('modalImg'),
   modalClose: document.getElementById('modalClose'),
   toastNotice: document.getElementById('toastNotice'),
-  toastMsg: document.getElementById('toastMsg')
+  toastMsg: document.getElementById('toastMsg'),
+
+  // Payment Verification Elements
+  paymentScreenshotInput: document.getElementById('paymentScreenshotInput'),
+  paymentUploadZone: document.getElementById('paymentUploadZone'),
+  paymentUploadPrompt: document.getElementById('paymentUploadPrompt'),
+  paymentScreenshotPreviewContainer: document.getElementById('paymentScreenshotPreviewContainer'),
+  paymentScreenshotThumb: document.getElementById('paymentScreenshotThumb'),
+  btnChangePaymentScreenshot: document.getElementById('btnChangePaymentScreenshot'),
+  btnCopyUpi: document.getElementById('btnCopyUpi')
 };
 
 // Toast notification helper
@@ -178,13 +189,12 @@ function updateDistrictsForState(selectedState = 'Haryana', defaultDistrict = ''
   }
 }
 
-// Compute Membership Number
+// Compute Unique Employee / Membership ID: INLD06/<District Code>/<Constituency Code>/<8-digit sequence>
 function getComputedMembershipNo() {
-  const stateCode = (elements.selectState.value.trim() || 'Haryana').substring(0, 2).toUpperCase();
-  const district = elements.selectDistrict.value.trim() || 'SIRSA';
-  const code = elements.inputConscode.value.trim() || '45';
-  const booth = elements.inputBooth.value.trim() || '30';
-  return `INLD/${stateCode}/${district}/${code}/${booth}`;
+  const district = elements.selectDistrict.value.trim() || 'Sirsa';
+  const constituency = elements.inputConstituency.value.trim() || 'Sirsa';
+  const seq = state.currentSeqNumber || 1;
+  return formatEmployeeId(district, constituency, seq);
 }
 
 // Collect current form data
@@ -211,6 +221,8 @@ function getFormData() {
     whatsappNumber: elements.whatsappNumber.value.trim(),
     whatsappCountryCode: elements.selectWaCountry.value,
     membershipNo: membershipNo,
+    paymentScreenshot: state.paymentScreenshot,
+    paymentAmount: 50,
     signatoryName: 'RamPal Majra',
     signatoryTitle: 'Pradeshadhyaksh, INLD',
     photoImg: state.userPhoto || state.sampleAssets?.samplePhoto,
@@ -510,6 +522,13 @@ function validateForm() {
     clearFieldError('chkAgreeRules');
   }
 
+  // 15. Mandatory Payment Confirmation Screenshot validation
+  if (!state.paymentScreenshot) {
+    markError('paymentScreenshot', 'कृपया सफल UPI भुगतान (कम से कम ₹50) की रसीद / स्क्रीनशॉट अपलोड करें');
+  } else {
+    clearFieldError('paymentScreenshot');
+  }
+
   return { isValid, firstInvalidEl };
 }
 
@@ -676,6 +695,22 @@ function setupEventListeners() {
     if (state.cardGenerated) updateCard();
   });
 
+  // Fetch preview of next unique sequence ID from server
+  async function fetchNextIdPreview() {
+    try {
+      const dist = elements.selectDistrict.value.trim() || 'Sirsa';
+      const consti = elements.inputConstituency.value.trim() || 'Sirsa';
+      const res = await fetch(`/api/cards/next-id?district=${encodeURIComponent(dist)}&constituency=${encodeURIComponent(consti)}`);
+      const data = await res.json();
+      if (data.success && data.seq) {
+        state.currentSeqNumber = data.seq;
+        if (state.cardGenerated) updateCard();
+      }
+    } catch (e) {
+      // fallback
+    }
+  }
+
   // Constituency auto-matching with AC code from Haryana Constituencies
   elements.inputConstituency?.addEventListener('input', (e) => {
     const val = e.target.value.trim().toLowerCase();
@@ -686,6 +721,61 @@ function setupEventListeners() {
       elements.inputConscode.value = match.code;
     }
     clearFieldError('inputConstituency');
+    fetchNextIdPreview();
+  });
+
+  elements.selectDistrict?.addEventListener('change', () => {
+    fetchNextIdPreview();
+  });
+
+  // Payment Screenshot Upload Handling
+  elements.paymentUploadZone?.addEventListener('click', () => {
+    elements.paymentScreenshotInput?.click();
+  });
+
+  elements.paymentScreenshotInput?.addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('कृपया केवल इमेज (Image) फ़ाइल चुनें', false);
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('स्क्रीनशॉट फ़ाइल 5MB से छोटी होनी चाहिए', false);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      state.paymentScreenshot = evt.target.result;
+      if (elements.paymentScreenshotThumb) {
+        elements.paymentScreenshotThumb.src = evt.target.result;
+      }
+      if (elements.paymentUploadPrompt) elements.paymentUploadPrompt.style.display = 'none';
+      if (elements.paymentScreenshotPreviewContainer) elements.paymentScreenshotPreviewContainer.style.display = 'block';
+      clearFieldError('paymentScreenshot');
+      showToast('✓ भुगतान स्क्रीनशॉट सफलतापूर्वक लोड हुआ!');
+    };
+    reader.readAsDataURL(file);
+  });
+
+  elements.btnChangePaymentScreenshot?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    state.paymentScreenshot = null;
+    if (elements.paymentScreenshotInput) elements.paymentScreenshotInput.value = '';
+    if (elements.paymentUploadPrompt) elements.paymentUploadPrompt.style.display = 'block';
+    if (elements.paymentScreenshotPreviewContainer) elements.paymentScreenshotPreviewContainer.style.display = 'none';
+  });
+
+  // Copy UPI ID button
+  elements.btnCopyUpi?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText('inldparty@sbi').then(() => {
+      showToast('✓ UPI ID (inldparty@sbi) क्लिपबोर्ड पर कॉपी हो गई!');
+    }).catch(() => {
+      showToast('UPI ID: inldparty@sbi');
+    });
   });
 
   // Clear errors on field input/change
@@ -749,11 +839,12 @@ function setupEventListeners() {
         if (elements.submissionSuccessSection) {
           elements.submissionSuccessSection.style.display = 'block';
 
-          const refNumber = cardData.membershipNo || ('INLD-REQ-#' + (data.id || Math.floor(1000 + Math.random() * 9000)));
+          const refNumber = data.membershipNo || cardData.membershipNo || ('INLD06/079/45/' + String(data.id || 1).padStart(8, '0'));
           if (elements.successRefNo) elements.successRefNo.textContent = refNumber;
 
           if (elements.successSummaryBox) {
             elements.successSummaryBox.innerHTML = `
+              <div class="summary-line"><span>कर्मचारी/सदस्यता ID (Employee ID):</span> <strong style="color: #0b4d2e; font-size: 1.05rem;">${refNumber}</strong></div>
               <div class="summary-line"><span>आवेदक का नाम:</span> <strong>${cardData.name}</strong></div>
               <div class="summary-line"><span>पिताजी का नाम:</span> <strong>${cardData.father}</strong></div>
               <div class="summary-line"><span>मोबाइल नंबर:</span> <strong>${cardData.mobile}</strong></div>
@@ -763,6 +854,7 @@ function setupEventListeners() {
               ${cardData.village ? `<div class="summary-line"><span>गांव:</span> <strong>${cardData.village}</strong></div>` : ''}
               <div class="summary-line"><span>विधानसभा क्षेत्र:</span> <strong>${cardData.constituency}</strong></div>
               ${cardData.aadhaarNo ? `<div class="summary-line"><span>आधार नंबर:</span> <strong>${cardData.aadhaarNo}</strong></div>` : ''}
+              <div class="summary-line"><span>सदस्यता शुल्क:</span> <strong style="color: #16a34a;">₹50 (UPI भुगतान रसीद सत्यापित)</strong></div>
             `;
           }
 
@@ -827,9 +919,14 @@ function setupEventListeners() {
   elements.btnNewApplication?.addEventListener('click', () => {
     elements.form.reset();
     state.userPhoto = null;
+    state.paymentScreenshot = null;
     if (elements.photoInput) elements.photoInput.value = '';
     if (elements.photoThumb) elements.photoThumb.src = '';
     if (elements.photoThumbContainer) elements.photoThumbContainer.style.display = 'none';
+
+    if (elements.paymentScreenshotInput) elements.paymentScreenshotInput.value = '';
+    if (elements.paymentUploadPrompt) elements.paymentUploadPrompt.style.display = 'block';
+    if (elements.paymentScreenshotPreviewContainer) elements.paymentScreenshotPreviewContainer.style.display = 'none';
 
     if (elements.submissionSuccessSection) elements.submissionSuccessSection.style.display = 'none';
     if (elements.formWrapper) elements.formWrapper.style.display = 'block';

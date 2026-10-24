@@ -7,6 +7,7 @@ import bcrypt from 'bcryptjs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { initDb, query, get, run, getSetting, setSetting } from './db.js';
+import { formatEmployeeId, getDistrictCode, getConstituencyCode } from './idHelper.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -369,7 +370,42 @@ app.get('/api/subscription-plans', async (req, res) => {
 // 2. CARD GENERATION & LOGS
 // ==========================================
 
-// Create Card Log
+// Helper to generate guaranteed unique employee/membership ID
+async function generateUniqueMembershipId(district, constituency) {
+  const setting = await get(`SELECT setting_value FROM system_settings WHERE setting_key = 'last_membership_seq'`);
+  let currentSeq = setting ? parseInt(setting.setting_value, 10) : 0;
+  if (isNaN(currentSeq) || currentSeq < 0) currentSeq = 0;
+
+  const countRow = await get(`SELECT COUNT(*) as total FROM card_logs`);
+  const totalLogs = countRow ? parseInt(countRow.total || 0, 10) : 0;
+  if (totalLogs > currentSeq) {
+    currentSeq = totalLogs;
+  }
+
+  const nextSeq = currentSeq + 1;
+  await setSetting('last_membership_seq', String(nextSeq), 'Next unique membership sequence counter');
+
+  return formatEmployeeId(district, constituency, nextSeq);
+}
+
+// Preview next membership ID
+app.get('/api/cards/next-id', async (req, res) => {
+  try {
+    const { district, constituency } = req.query;
+    const setting = await get(`SELECT setting_value FROM system_settings WHERE setting_key = 'last_membership_seq'`);
+    let currentSeq = setting ? parseInt(setting.setting_value, 10) : 0;
+    if (isNaN(currentSeq) || currentSeq < 0) currentSeq = 0;
+    const countRow = await get(`SELECT COUNT(*) as total FROM card_logs`);
+    const totalLogs = countRow ? parseInt(countRow.total || 0, 10) : 0;
+    const previewSeq = Math.max(currentSeq, totalLogs) + 1;
+    const nextId = formatEmployeeId(district, constituency, previewSeq);
+    res.json({ success: true, nextId, seq: previewSeq });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Next ID error' });
+  }
+});
+
+// Create Card Log with Unique Employee ID & Payment Proof
 app.post('/api/cards', optionalUserAuth, async (req, res) => {
   try {
     const data = req.body;
@@ -394,17 +430,23 @@ app.post('/api/cards', optionalUserAuth, async (req, res) => {
 
     const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
     const aadhaar = data.aadhaarNo || data.aadhaar_no || data.inputAadhaar || '';
+    const paymentScreenshot = data.paymentScreenshot || data.paymentScreenshotUrl || data.payment_screenshot_url || '';
+    const paymentAmount = parseInt(data.paymentAmount || 50, 10) || 50;
+
+    // Generate guaranteed unique sequential Employee ID: INLD06/<District>/<Constituency>/<8-digit sequence>
+    const uniqueMembershipNo = await generateUniqueMembershipId(data.district, data.constituency);
 
     // Insert card log / request
     const result = await run(
       `INSERT INTO card_logs (
         user_id, membership_no, name, father_name, mobile, state, district,
         city, village, constituency, conscode, designation, dob, caste, booth,
-        whatsapp_number, photo_url, status, aadhaar_no, ip_address
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        whatsapp_number, photo_url, status, aadhaar_no, payment_screenshot_url,
+        payment_amount, ip_address
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         user ? user.id : null,
-        data.membershipNo || '',
+        uniqueMembershipNo,
         data.name || '',
         data.father || '',
         data.mobile || '',
@@ -422,6 +464,8 @@ app.post('/api/cards', optionalUserAuth, async (req, res) => {
         data.photoThumb || '',
         data.status || 'pending',
         aadhaar,
+        paymentScreenshot,
+        paymentAmount,
         ipAddress
       ]
     );
@@ -429,7 +473,8 @@ app.post('/api/cards', optionalUserAuth, async (req, res) => {
     res.json({
       success: true,
       message: 'पहचान पत्र रिकॉर्ड सुरक्षित कर लिया गया।',
-      id: result.lastInsertRowid || result.id
+      id: result.lastInsertRowid || result.id,
+      membershipNo: uniqueMembershipNo
     });
   } catch (err) {
     console.error('Card log creation error:', err);
@@ -525,13 +570,15 @@ app.put('/api/cards/:id', authenticateAdmin, async (req, res) => {
     }
 
     const photoUrl = d.photo_url || d.photoThumb || existing.photo_url;
+    const paymentScreenshot = d.payment_screenshot_url || d.paymentScreenshot || existing.payment_screenshot_url || '';
 
     await run(
       `UPDATE card_logs
        SET name = ?, father_name = ?, mobile = ?, state = ?, district = ?,
            city = ?, village = ?, constituency = ?, conscode = ?,
            designation = ?, dob = ?, caste = ?, booth = ?,
-           whatsapp_number = ?, photo_url = ?, status = ?, aadhaar_no = ?
+           whatsapp_number = ?, photo_url = ?, status = ?, aadhaar_no = ?,
+           payment_screenshot_url = ?
        WHERE id = ?`,
       [
         d.name !== undefined ? d.name : existing.name,
@@ -551,6 +598,7 @@ app.put('/api/cards/:id', authenticateAdmin, async (req, res) => {
         photoUrl,
         d.status !== undefined ? d.status : (existing.status || 'pending'),
         d.aadhaar_no !== undefined ? d.aadhaar_no : (d.aadhaarNo !== undefined ? d.aadhaarNo : (existing.aadhaar_no || '')),
+        paymentScreenshot,
         id
       ]
     );

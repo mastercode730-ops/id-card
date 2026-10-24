@@ -200,17 +200,21 @@ export async function initDb() {
       whatsapp_number TEXT,
       photo_url TEXT,
       status TEXT DEFAULT 'pending',
+      payment_screenshot_url TEXT,
+      payment_amount INTEGER DEFAULT 50,
       ip_address TEXT,
       created_at ${timeType} DEFAULT CURRENT_TIMESTAMP
     );
   `);
 
-  // Ensure user_id, city, village, status, aadhaar_no columns exist on card_logs
+  // Ensure user_id, city, village, status, aadhaar_no, payment columns exist on card_logs
   try { await exec(`ALTER TABLE card_logs ADD COLUMN user_id INTEGER`); } catch (e) {}
   try { await exec(`ALTER TABLE card_logs ADD COLUMN city TEXT`); } catch (e) {}
   try { await exec(`ALTER TABLE card_logs ADD COLUMN village TEXT`); } catch (e) {}
   try { await exec(`ALTER TABLE card_logs ADD COLUMN status TEXT DEFAULT 'pending'`); } catch (e) {}
   try { await exec(`ALTER TABLE card_logs ADD COLUMN aadhaar_no TEXT`); } catch (e) {}
+  try { await exec(`ALTER TABLE card_logs ADD COLUMN payment_screenshot_url TEXT`); } catch (e) {}
+  try { await exec(`ALTER TABLE card_logs ADD COLUMN payment_amount INTEGER DEFAULT 50`); } catch (e) {}
 
   // 6. Dynamic Field Configuration Table
   await exec(`

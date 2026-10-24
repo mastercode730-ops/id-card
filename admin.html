@@ -269,6 +269,7 @@
                 <th>राज्य एवं ज़िला</th>
                 <th>शहर / गांव</th>
                 <th>विधानसभा क्षेत्र</th>
+                <th>शुल्क / रसीद</th>
                 <th>स्थिति (Status)</th>
                 <th>समय</th>
                 <th>कार्यवाही (Actions)</th>
@@ -276,7 +277,7 @@
             </thead>
             <tbody id="cardLogsTableBody">
               <tr>
-                <td colspan="10" class="text-center py-6">लॉग्स लोड हो रहे हैं...</td>
+                <td colspan="11" class="text-center py-6">लॉग्स लोड हो रहे हैं...</td>
               </tr>
             </tbody>
           </table>
@@ -666,6 +667,26 @@
             <button type="submit" class="btn-save-primary" id="btnSubmitNewField">✅ नया फ़ील्ड जोड़ें (Add Field)</button>
           </div>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal to View Payment Screenshot -->
+  <div class="admin-modal" id="paymentScreenshotModal" style="display: none; position: fixed; inset: 0; z-index: 9999; align-items: center; justify-content: center;">
+    <div class="modal-backdrop" id="backdropPaymentModal" style="position: absolute; inset: 0; background: rgba(0,0,0,0.65);"></div>
+    <div class="modal-content" style="position: relative; max-width: 520px; width: 92%; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.3); z-index: 10;">
+      <div class="modal-header" style="background: #0b4d2e; color: #fff; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center;">
+        <h3 id="paymentModalTitle" style="margin: 0; font-size: 1.1rem; color: #fff;">💳 UPI भुगतान रसीद (Payment Screenshot)</h3>
+        <button type="button" class="btn-modal-close" id="btnClosePaymentModal" style="background: none; border: none; color: #fff; font-size: 1.4rem; cursor: pointer;">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 20px; text-align: center;">
+        <div id="paymentModalMeta" style="margin-bottom: 12px; font-weight: 700; color: #0b4d2e; font-size: 0.95rem;"></div>
+        <div style="background: #f1f5f9; padding: 10px; border-radius: 8px; display: inline-block; max-width: 100%;">
+          <img id="paymentModalImg" src="" alt="Payment Proof" style="max-width: 100%; max-height: 480px; border-radius: 6px; display: block; margin: 0 auto; object-fit: contain;">
+        </div>
+      </div>
+      <div class="modal-footer" style="padding: 12px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end;">
+        <button type="button" class="btn-cancel" id="btnDismissPaymentModal" style="padding: 8px 18px; border-radius: 6px; cursor: pointer; border: 1px solid #cbd5e1; background: #fff; font-weight: 600;">बंद करें (Close)</button>
       </div>
     </div>
   </div>

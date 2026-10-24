@@ -392,7 +392,7 @@ function renderCardLogsTable(logs) {
   if (!displayLogs || displayLogs.length === 0) {
     el.cardLogsTableBody.innerHTML = `
       <tr>
-        <td colspan="10" style="text-align: center; padding: 32px; color: var(--text-muted);">
+        <td colspan="11" style="text-align: center; padding: 32px; color: var(--text-muted);">
           कोई कार्ड रिकॉर्ड या आवेदन नहीं मिला।
         </td>
       </tr>
@@ -415,6 +415,12 @@ function renderCardLogsTable(logs) {
     const statusBadge = (log.status === 'generated')
       ? '<span class="status-badge-generated">✓ तैयार</span>'
       : '<span class="status-badge-pending">⏳ लंबित</span>';
+
+    const paymentProofBtn = log.payment_screenshot_url
+      ? `<button type="button" class="btn-action-payment" style="background: #0b4d2e; color: #ffffff; border: none; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="भुगतान रसीद देखें" onclick="window.viewPaymentScreenshot(${log.id})">
+           💳 ₹${log.payment_amount || 50}
+         </button>`
+      : `<span style="color: #94a3b8; font-size: 0.78rem;">लंबित</span>`;
 
     return `
       <tr data-id="${log.id}">
@@ -439,6 +445,7 @@ function renderCardLogsTable(logs) {
         </td>
         <td>${escapeHtml(cityVillageStr)}</td>
         <td>${escapeHtml(log.constituency || 'N/A')} ${log.conscode ? `<small>(${escapeHtml(log.conscode)})</small>` : ''}</td>
+        <td>${paymentProofBtn}</td>
         <td>${statusBadge}</td>
         <td style="white-space: nowrap;"><small>${formattedDate}</small></td>
         <td>
@@ -575,7 +582,8 @@ window.exportIndividualRecordPdf = function(id) {
       { label: 'Village (गांव)', val: log.village || '-' },
       { label: 'Assembly Constituency (विधानसभा)', val: `${log.constituency || '-'} ${log.conscode ? '(' + log.conscode + ')' : ''}` },
       { label: 'Booth Number (बूथ नं)', val: log.booth || '-' },
-      { label: 'Membership ID (क्रमांक)', val: log.membership_no || `INLD-REQ-${log.id}` }
+      { label: 'Membership ID (क्रमांक)', val: log.membership_no || `INLD-REQ-${log.id}` },
+      { label: 'Payment Fee (सदस्यता शुल्क)', val: `₹${log.payment_amount || 50} (UPI Verified Screenshot)` }
     ];
 
     let rowY = 73;
@@ -904,6 +912,7 @@ window.generateAdminCard = async function(id) {
         पिता: <strong>${escapeHtml(log.father_name || '-')}</strong> • मोबाइल: <strong>${escapeHtml(log.mobile || '-')}</strong> • ज़िला: <strong>${escapeHtml(log.district || '-')}</strong>
       </div>
       ${locDetail ? `<div class="meta-loc-tag">📍 ${escapeHtml(locDetail)}</div>` : ''}
+      ${log.payment_screenshot_url ? `<div style="margin-top: 5px;"><button type="button" style="background:#0b4d2e; color:#fff; border:none; padding:3px 10px; border-radius:5px; font-size:0.75rem; font-weight:700; cursor:pointer;" onclick="window.viewPaymentScreenshot(${log.id})">💳 शुल्क ₹${log.payment_amount || 50} (रसीद देखें)</button></div>` : ''}
     </div>
     <div>
       <span class="${log.status === 'generated' ? 'status-badge-generated' : 'status-badge-pending'}" id="genStatusBadge">
@@ -1543,6 +1552,41 @@ function escapeHtml(text) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 }
+
+// View Payment Screenshot Modal Handler
+window.viewPaymentScreenshot = function(id) {
+  const log = state.cardLogs.find(l => l.id === id);
+  if (!log || !log.payment_screenshot_url) {
+    showToast('भुगतान रसीद / स्क्रीनशॉट उपलब्ध नहीं है', false);
+    return;
+  }
+
+  const modal = document.getElementById('paymentScreenshotModal');
+  const img = document.getElementById('paymentModalImg');
+  const meta = document.getElementById('paymentModalMeta');
+
+  if (img) img.src = log.payment_screenshot_url;
+  if (meta) {
+    meta.innerHTML = `
+      आवेदक: <strong>${escapeHtml(log.name)}</strong> (ID: <code>${escapeHtml(log.membership_no || '#' + log.id)}</code>)<br>
+      सत्यापित शुल्क: <strong style="color: #16a34a;">₹${log.payment_amount || 50}</strong> • मोबाइल: <strong>${escapeHtml(log.mobile || '-')}</strong>
+    `;
+  }
+
+  if (modal) modal.style.display = 'flex';
+};
+
+// Payment modal close listeners
+const paymentModal = document.getElementById('paymentScreenshotModal');
+document.getElementById('btnClosePaymentModal')?.addEventListener('click', () => {
+  if (paymentModal) paymentModal.style.display = 'none';
+});
+document.getElementById('btnDismissPaymentModal')?.addEventListener('click', () => {
+  if (paymentModal) paymentModal.style.display = 'none';
+});
+document.getElementById('backdropPaymentModal')?.addEventListener('click', () => {
+  if (paymentModal) paymentModal.style.display = 'none';
+});
 
 // Auto-check auth on page load
 async function checkAuthOnStartup() {
