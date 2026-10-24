@@ -771,10 +771,10 @@ function setupEventListeners() {
   // Copy UPI ID button
   elements.btnCopyUpi?.addEventListener('click', (e) => {
     e.stopPropagation();
-    navigator.clipboard.writeText('inldparty@sbi').then(() => {
-      showToast('✓ UPI ID (inldparty@sbi) क्लिपबोर्ड पर कॉपी हो गई!');
+    navigator.clipboard.writeText('adityaanuraag143@oksbi').then(() => {
+      showToast('✓ UPI ID (adityaanuraag143@oksbi) क्लिपबोर्ड पर कॉपी हो गई!');
     }).catch(() => {
-      showToast('UPI ID: inldparty@sbi');
+      showToast('UPI ID: adityaanuraag143@oksbi');
     });
   });
 
