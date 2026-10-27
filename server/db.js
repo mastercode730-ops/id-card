@@ -383,6 +383,16 @@ export async function initDb() {
         console.log('✓ Added inputAadhaar to existing field_configs');
       }
 
+      const paymentField = await get(`SELECT id FROM field_configs WHERE field_key = 'paymentScreenshot'`);
+      if (!paymentField) {
+        await run(
+          `INSERT INTO field_configs (field_key, label_hi, label_en, field_type, is_required, is_enabled, display_order, help_text)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          ['paymentScreenshot', 'भुगतान रसीद / स्क्रीनशॉट (Payment Screenshot)', 'Payment Screenshot', 'file', 1, 1, 17, 'UPI शुल्क भुगतान रसीद']
+        );
+        console.log('✓ Added paymentScreenshot to existing field_configs');
+      }
+
       // Ensure inputConscode is disabled by default unless admin modified
       await run(`UPDATE field_configs SET is_enabled = 0, is_required = 0 WHERE field_key = 'inputConscode' AND is_enabled = 1`);
     } catch (err) {

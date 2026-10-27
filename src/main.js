@@ -94,6 +94,7 @@ const state = {
   paymentUtr: '',
   isReceiptValid: false,
   isOcrScanning: false,
+  isSampleMode: false,
   currentSeqNumber: 1
 };
 
@@ -307,17 +308,23 @@ const FIELD_GROUP_MAP = {
   inputDob: 'group-dob',
   inputCaste: 'group-caste',
   inputBooth: 'group-booth',
-  whatsappNumber: 'group-whatsapp'
+  whatsappNumber: 'group-whatsapp',
+  paymentScreenshot: 'group-paymentScreenshot'
 };
 
 function isFieldEnabled(key) {
   const f = state.fieldConfigs.find(c => c.field_key === key);
-  return f ? Boolean(f.is_enabled) : true;
+  if (!f) return true;
+  return Number(f.is_enabled) === 1 || f.is_enabled === true || f.is_enabled === '1' || f.is_enabled === 'true';
 }
 
 function isFieldRequired(key) {
+  // If sample mode is active (नमूना भरें), no field is mandatory
+  if (state.isSampleMode) return false;
+
   const f = state.fieldConfigs.find(c => c.field_key === key);
-  return f ? Boolean(f.is_required) : true;
+  if (!f) return false;
+  return Number(f.is_required) === 1 || f.is_required === true || f.is_required === '1' || f.is_required === 'true';
 }
 
 // Fetch and Apply Dynamic Field Configurations from Admin
@@ -327,22 +334,76 @@ async function loadAndApplyFieldConfigs() {
     const data = await res.json();
     if (data.success && Array.isArray(data.fields)) {
       state.fieldConfigs = data.fields;
-      data.fields.forEach((f) => {
-        const groupId = FIELD_GROUP_MAP[f.field_key];
-        const groupEl = document.getElementById(groupId);
-        if (groupEl) {
-          groupEl.style.display = f.is_enabled ? '' : 'none';
-          const labelEl = groupEl.querySelector('.field-label');
-          if (labelEl && f.label_hi) {
-            const reqStar = f.is_required ? ' <span class="req-star">*</span>' : '';
-            labelEl.innerHTML = `${f.label_hi}${reqStar}`;
-          }
-        }
-      });
+      applyFieldConfigsToDOM();
     }
   } catch (err) {
     console.warn('Field config fetch skipped (offline/standalone):', err);
   }
+}
+
+function applyFieldConfigsToDOM() {
+  if (!Array.isArray(state.fieldConfigs)) return;
+
+  state.fieldConfigs.forEach((f) => {
+    const groupId = FIELD_GROUP_MAP[f.field_key];
+    const groupEl = document.getElementById(groupId);
+    if (!groupEl) return;
+
+    const isEnabled = Number(f.is_enabled) === 1 || f.is_enabled === true || f.is_enabled === '1' || f.is_enabled === 'true';
+    const isRequired = Number(f.is_required) === 1 || f.is_required === true || f.is_required === '1' || f.is_required === 'true';
+
+    // Show or hide based on is_enabled
+    groupEl.style.display = isEnabled ? '' : 'none';
+
+    // Special handling for payment section container
+    if (f.field_key === 'paymentScreenshot') {
+      const paymentSection = document.getElementById('paymentSection');
+      if (paymentSection) paymentSection.style.display = isEnabled ? '' : 'none';
+      const utrReqStar = document.querySelector('#utrContainer .req-star');
+      if (utrReqStar) utrReqStar.style.display = isRequired ? '' : 'none';
+    }
+
+    // Update label text and red asterisk (*)
+    const labelEl = groupEl.querySelector('.field-label');
+    if (labelEl) {
+      let starEl = labelEl.querySelector('.req-star');
+      if (isRequired) {
+        if (!starEl) {
+          starEl = document.createElement('span');
+          starEl.className = 'req-star';
+          starEl.textContent = '*';
+          labelEl.appendChild(document.createTextNode(' '));
+          labelEl.appendChild(starEl);
+        }
+        starEl.style.display = '';
+      } else {
+        if (starEl) {
+          starEl.style.display = 'none';
+        }
+      }
+
+      // If custom label provided by admin, update base label text
+      if (f.label_hi) {
+        const cleanLabel = f.label_hi.replace(/\s*\*\s*$/, '').trim();
+        labelEl.childNodes.forEach((node) => {
+          if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+            node.textContent = cleanLabel + ' ';
+          }
+        });
+      }
+    }
+
+    // If input element exists, toggle HTML required attribute
+    const inputEl = document.getElementById(f.field_key);
+    if (inputEl) {
+      if (isRequired) {
+        inputEl.setAttribute('aria-required', 'true');
+      } else {
+        inputEl.removeAttribute('aria-required');
+        inputEl.removeAttribute('required');
+      }
+    }
+  });
 }
 
 // ==========================================
@@ -470,6 +531,22 @@ function validateForm() {
     } else {
       clearFieldError('inputConscode');
     }
+  } else {
+    clearFieldError('inputConscode');
+  }
+
+  // 8B. Aadhaar Number validation
+  if (isFieldEnabled('inputAadhaar') && elements.inputAadhaar) {
+    const aadhaarVal = elements.inputAadhaar.value.trim();
+    if (isFieldRequired('inputAadhaar') && !aadhaarVal) {
+      markError('inputAadhaar', 'आधार नंबर दर्ज करना अनिवार्य है');
+    } else if (aadhaarVal && !/^\d{12}$/.test(aadhaarVal.replace(/\s/g, ''))) {
+      markError('inputAadhaar', 'कृपया 12 अंकों का मान्य आधार नंबर दर्ज करें');
+    } else {
+      clearFieldError('inputAadhaar');
+    }
+  } else if (elements.inputAadhaar) {
+    clearFieldError('inputAadhaar');
   }
 
   // 9. Designation validation
@@ -531,18 +608,24 @@ function validateForm() {
 
   // 14. Agree to party rules checkbox validation
   const chkAgree = document.getElementById('chkAgreeRules');
-  if (chkAgree && !chkAgree.checked) {
+  if (chkAgree && !chkAgree.checked && !state.isSampleMode) {
     markError('chkAgreeRules', 'कृपया पार्टी के नियमों एवं नीतियों का पालन करने की सहमति दें');
   } else if (chkAgree) {
     clearFieldError('chkAgreeRules');
   }
 
-  // 15. Mandatory Payment Confirmation Screenshot & UTR validation
-  if (!state.paymentScreenshot) {
+  // 15. Payment Confirmation Screenshot & UTR validation
+  const isPaymentReq = isFieldRequired('paymentScreenshot');
+  const isPaymentEnab = isFieldEnabled('paymentScreenshot');
+
+  if (state.isSampleMode || !isPaymentEnab) {
+    clearFieldError('paymentScreenshot');
+    clearFieldError('inputUtrNumber');
+  } else if (isPaymentReq && !state.paymentScreenshot) {
     markError('paymentScreenshot', 'कृपया सफल UPI भुगतान (कम से कम ₹50) की रसीद / स्क्रीनशॉट अपलोड करें');
-  } else if (state.isOcrScanning) {
+  } else if (state.paymentScreenshot && state.isOcrScanning) {
     markError('paymentScreenshot', 'रसीद की स्वचालित OCR जाँच हो रही है, कृपया कुछ सेकंड प्रतीक्षा करें...');
-  } else if (!state.isReceiptValid && (!state.paymentUtr || state.paymentUtr.length !== 12)) {
+  } else if (state.paymentScreenshot && !state.isReceiptValid && (!state.paymentUtr || state.paymentUtr.length !== 12)) {
     markError('paymentScreenshot', 'यह मान्य UPI भुगतान रसीद प्रतीत नहीं हो रही है। कृपया सही रसीद दें या नीचे 12 अंकों का UTR नंबर दर्ज करें');
     if (elements.inputUtrNumber && (!elements.inputUtrNumber.value || elements.inputUtrNumber.value.trim().length !== 12)) {
       markError('inputUtrNumber', 'कृपया 12 अंकों का मान्य UPI Ref / UTR नंबर दर्ज करें');
@@ -575,11 +658,14 @@ async function updateCard() {
 
 // Load Sample Data (For Quick Testing)
 function loadSampleData() {
-  // Clear any existing validation errors
+  state.isSampleMode = true;
+
+  // Clear any existing validation errors across all fields
   [
     'photoInput', 'inputName', 'inputFather', 'inputMobile', 'selectState',
-    'selectDistrict', 'inputConstituency', 'inputConscode', 'inputDesignation',
-    'inputDob', 'inputCaste', 'inputBooth', 'whatsappNumber'
+    'selectDistrict', 'inputCity', 'inputVillage', 'inputConstituency', 'inputConscode',
+    'inputAadhaar', 'inputDesignation', 'inputDob', 'inputCaste', 'inputBooth',
+    'whatsappNumber', 'paymentScreenshot', 'inputUtrNumber', 'chkAgreeRules'
   ].forEach(clearFieldError);
 
   elements.inputName.value = 'Ravi Kant';
@@ -598,6 +684,11 @@ function loadSampleData() {
   elements.inputBooth.value = '30';
   elements.selectWaCountry.value = '+91';
   elements.whatsappNumber.value = '9815395397';
+  if (elements.inputAadhaar) elements.inputAadhaar.value = '999988887777';
+
+  // Check party agreement checkbox
+  const chkAgree = document.getElementById('chkAgreeRules');
+  if (chkAgree) chkAgree.checked = true;
 
   // Load sample member photo
   if (state.sampleAssets?.samplePhoto) {
@@ -606,7 +697,26 @@ function loadSampleData() {
     elements.photoThumbContainer.style.display = 'block';
   }
 
-  showToast('✓ नमूना डेटा (Sample Data) लोड हो गया है। अब "कार्ड बनाएं" पर क्लिक करें!');
+  // Pre-fill valid sample payment receipt & unique sample UTR so no manual upload is needed
+  const sampleUtr = '9999' + Math.floor(10000000 + Math.random() * 90000000);
+  state.paymentScreenshot = '/assets/inld_payment_qr.png';
+  state.paymentUtr = sampleUtr;
+  state.isReceiptValid = true;
+  state.isOcrScanning = false;
+
+  if (elements.paymentScreenshotThumb) elements.paymentScreenshotThumb.src = '/assets/inld_payment_qr.png';
+  if (elements.paymentUploadPrompt) elements.paymentUploadPrompt.style.display = 'none';
+  if (elements.paymentScreenshotPreviewContainer) elements.paymentScreenshotPreviewContainer.style.display = 'block';
+  if (elements.ocrVerifiedBadge) elements.ocrVerifiedBadge.style.display = 'block';
+  if (elements.ocrWarningBadge) elements.ocrWarningBadge.style.display = 'none';
+  if (elements.ocrScanningStatus) elements.ocrScanningStatus.style.display = 'none';
+  if (elements.utrContainer) elements.utrContainer.style.display = 'block';
+  if (elements.inputUtrNumber) elements.inputUtrNumber.value = sampleUtr;
+  if (elements.utrDigitCounter) elements.utrDigitCounter.textContent = '12 / 12 अंक (सत्यापित नमूना)';
+
+  if (state.cardGenerated) updateCard();
+
+  showToast('✓ नमूना डेटा (Sample Data) लोड हो गया है। बिना किसी रोक-टोक के कार्ड बनाएं या आवेदन जमा करें!');
 }
 
 // ==========================================
@@ -1034,6 +1144,7 @@ function setupEventListeners() {
     state.paymentUtr = '';
     state.isReceiptValid = false;
     state.isOcrScanning = false;
+    state.isSampleMode = false;
     if (elements.photoInput) elements.photoInput.value = '';
     if (elements.photoThumb) elements.photoThumb.src = '';
     if (elements.photoThumbContainer) elements.photoThumbContainer.style.display = 'none';

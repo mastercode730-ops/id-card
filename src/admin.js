@@ -1325,7 +1325,8 @@ function renderFieldsList(fields) {
   }
 
   el.fieldsListContainer.innerHTML = fields.map((f) => {
-    const isEnabled = Boolean(f.is_enabled);
+    const isEnabled = Number(f.is_enabled) === 1 || f.is_enabled === true || f.is_enabled === '1' || f.is_enabled === 'true';
+    const isRequired = Number(f.is_required) === 1 || f.is_required === true || f.is_required === '1' || f.is_required === 'true';
     return `
       <div class="field-config-card ${isEnabled ? '' : 'is-disabled'}" data-key="${f.field_key}">
         <div class="field-card-header">
@@ -1358,7 +1359,7 @@ function renderFieldsList(fields) {
 
         <div class="field-bottom-toggles">
           <label class="checkbox-label">
-            <input type="checkbox" class="toggle-required" ${f.is_required ? 'checked' : ''}>
+            <input type="checkbox" class="toggle-required" ${isRequired ? 'checked' : ''}>
             <span>अनिवार्य फ़ील्ड (Required *)</span>
           </label>
           <div class="order-input-wrap">
