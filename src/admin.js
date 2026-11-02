@@ -51,6 +51,7 @@ const el = {
   logFilterConstituency: document.getElementById('logFilterConstituency'),
   adminConstituencyFilterList: document.getElementById('adminConstituencyFilterList'),
   logFilterCaste: document.getElementById('logFilterCaste'),
+  logFilterCell: document.getElementById('logFilterCell'),
   logFilterVillage: document.getElementById('logFilterVillage'),
   logFilterDob: document.getElementById('logFilterDob'),
   logFilterDateFrom: document.getElementById('logFilterDateFrom'),
@@ -129,6 +130,7 @@ const el = {
   editConscode: document.getElementById('editConscode'),
   editAadhaar: document.getElementById('editAadhaar'),
   editDesignation: document.getElementById('editDesignation'),
+  editCell: document.getElementById('editCell'),
   editDob: document.getElementById('editDob'),
   editCaste: document.getElementById('editCaste'),
   editBooth: document.getElementById('editBooth'),
@@ -345,6 +347,7 @@ async function loadCardLogs() {
     const dist = el.logFilterDistrict ? el.logFilterDistrict.value : 'all';
     const constituency = el.logFilterConstituency ? el.logFilterConstituency.value.trim() : '';
     const caste = el.logFilterCaste ? el.logFilterCaste.value.trim() : '';
+    const cell = el.logFilterCell ? el.logFilterCell.value.trim() : '';
     const village = el.logFilterVillage ? el.logFilterVillage.value.trim() : '';
     const dob = el.logFilterDob ? el.logFilterDob.value.trim() : '';
     const dateFrom = el.logFilterDateFrom ? el.logFilterDateFrom.value : '';
@@ -355,6 +358,7 @@ async function loadCardLogs() {
     if (dist && dist !== 'all') params.append('district', dist);
     if (constituency && constituency !== 'all') params.append('constituency', constituency);
     if (caste && caste !== 'all') params.append('caste', caste);
+    if (cell && cell !== 'all') params.append('cell', cell);
     if (village && village !== 'all') params.append('village', village);
     if (dob) params.append('dob', dob);
     if (dateFrom) params.append('dateFrom', dateFrom);
@@ -434,6 +438,7 @@ function renderCardLogsTable(logs) {
             <div>
               <div class="member-name-text">${escapeHtml(log.name || 'N/A')}</div>
               <div class="member-id-tag">${escapeHtml(log.membership_no || '')}</div>
+              ${log.cell ? `<div style="font-size: 0.74rem; color: #0b4d2e; font-weight: 700; margin-top: 2px;">🏷️ ${escapeHtml(log.cell)}</div>` : ''}
             </div>
           </div>
         </td>
@@ -580,6 +585,7 @@ window.exportIndividualRecordPdf = function(id) {
       { label: 'Date of Birth (जन्म तिथि)', val: log.dob || '-' },
       { label: 'Caste / Category (जाति)', val: log.caste || '-' },
       { label: 'Designation / Role (पद)', val: log.designation || 'INLD Karyakarta' },
+      { label: 'Cell / प्रकोष्ठ (Cell)', val: log.cell || '-' },
       { label: 'State & District (राज्य व ज़िला)', val: `${log.district || '-'}, ${log.state || 'Haryana'}` },
       { label: 'City / Town (शहर)', val: log.city || '-' },
       { label: 'Village (गांव)', val: log.village || '-' },
@@ -685,6 +691,7 @@ el.logSearchInput?.addEventListener('input', () => debouncedLoadCardLogs());
 el.logFilterDistrict?.addEventListener('change', () => loadCardLogs());
 el.logFilterConstituency?.addEventListener('input', () => debouncedLoadCardLogs());
 el.logFilterCaste?.addEventListener('change', () => loadCardLogs());
+el.logFilterCell?.addEventListener('change', () => loadCardLogs());
 el.logFilterVillage?.addEventListener('input', () => debouncedLoadCardLogs());
 el.logFilterDob?.addEventListener('input', () => debouncedLoadCardLogs());
 el.logFilterDateFrom?.addEventListener('change', () => loadCardLogs());
@@ -695,6 +702,7 @@ el.btnClearLogFilters?.addEventListener('click', () => {
   if (el.logFilterDistrict) el.logFilterDistrict.value = 'all';
   if (el.logFilterConstituency) el.logFilterConstituency.value = '';
   if (el.logFilterCaste) el.logFilterCaste.value = 'all';
+  if (el.logFilterCell) el.logFilterCell.value = 'all';
   if (el.logFilterVillage) el.logFilterVillage.value = '';
   if (el.logFilterDob) el.logFilterDob.value = '';
   if (el.logFilterDateFrom) el.logFilterDateFrom.value = '';
@@ -731,7 +739,7 @@ el.btnExportCsv.addEventListener('click', () => {
   if (state.activeStatusFilter === 'pending') statusSuffix = 'Pending';
   else if (state.activeStatusFilter === 'generated') statusSuffix = 'Generated';
 
-  const headers = ['ID', 'Membership No', 'Name', 'Father Name', 'Mobile', 'WhatsApp', 'State', 'District', 'City', 'Village', 'Constituency', 'Conscode', 'Designation', 'DOB', 'Caste', 'Booth', 'Status', 'Created At'];
+  const headers = ['ID', 'Membership No', 'Name', 'Father Name', 'Mobile', 'WhatsApp', 'State', 'District', 'City', 'Village', 'Constituency', 'Conscode', 'Designation', 'Cell', 'DOB', 'Caste', 'Booth', 'Status', 'Created At'];
   const rows = filteredLogs.map(l => [
     l.id,
     `"${(l.membership_no || '').replace(/"/g, '""')}"`,
@@ -746,6 +754,7 @@ el.btnExportCsv.addEventListener('click', () => {
     `"${(l.constituency || '').replace(/"/g, '""')}"`,
     `"${l.conscode || ''}"`,
     `"${(l.designation || '').replace(/"/g, '""')}"`,
+    `"${(l.cell || '').replace(/"/g, '""')}"`,
     `"${l.dob || ''}"`,
     `"${(l.caste || '').replace(/"/g, '""')}"`,
     `"${l.booth || ''}"`,
@@ -913,6 +922,7 @@ window.generateAdminCard = async function(id) {
       <div class="meta-name-title">${escapeHtml(log.name)}</div>
       <div class="meta-sub-info">
         पिता: <strong>${escapeHtml(log.father_name || '-')}</strong> • मोबाइल: <strong>${escapeHtml(log.mobile || '-')}</strong> • ज़िला: <strong>${escapeHtml(log.district || '-')}</strong>
+        ${log.cell ? ` • सेल: <strong>${escapeHtml(log.cell)}</strong>` : ''}
       </div>
       ${locDetail ? `<div class="meta-loc-tag">📍 ${escapeHtml(locDetail)}</div>` : ''}
       ${log.payment_screenshot_url ? `<div style="margin-top: 5px;"><button type="button" style="background:#0b4d2e; color:#fff; border:none; padding:3px 10px; border-radius:5px; font-size:0.75rem; font-weight:700; cursor:pointer;" onclick="window.viewPaymentScreenshot(${log.id})">💳 शुल्क ₹${log.payment_amount || 50} (रसीद देखें)</button></div>` : ''}
@@ -950,6 +960,7 @@ window.generateAdminCard = async function(id) {
       constituency: log.constituency || '',
       conscode: log.conscode || '',
       designation: log.designation || 'INLD Karyakarta',
+      cell: log.cell || '',
       dob: log.dob || '',
       caste: log.caste || '',
       booth: log.booth || '',
@@ -1125,6 +1136,7 @@ window.editCardLog = function(id) {
   el.editConscode.value = log.conscode || '';
   if (el.editAadhaar) el.editAadhaar.value = log.aadhaar_no || '';
   el.editDesignation.value = log.designation || 'INLD Karyakarta';
+  if (el.editCell) el.editCell.value = log.cell || '';
   el.editDob.value = log.dob || '';
   el.editCaste.value = log.caste || '';
   el.editBooth.value = log.booth || '';
@@ -1192,6 +1204,7 @@ el.adminEditMemberForm.addEventListener('submit', async (e) => {
     conscode: el.editConscode.value.trim(),
     aadhaar_no: el.editAadhaar ? el.editAadhaar.value.trim() : '',
     designation: el.editDesignation.value.trim(),
+    cell: el.editCell ? el.editCell.value.trim() : '',
     dob: el.editDob.value.trim(),
     caste: el.editCaste.value.trim(),
     booth: el.editBooth.value.trim(),

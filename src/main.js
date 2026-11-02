@@ -130,6 +130,7 @@ const elements = {
   inputConscode: document.getElementById('inputConscode'),
   inputAadhaar: document.getElementById('inputAadhaar'),
   inputDesignation: document.getElementById('inputDesignation'),
+  inputCell: document.getElementById('inputCell'),
   inputDob: document.getElementById('inputDob'),
   inputCaste: document.getElementById('inputCaste'),
   inputBooth: document.getElementById('inputBooth'),
@@ -225,6 +226,7 @@ function getFormData() {
     dob: elements.inputDob.value.trim(),
     caste: elements.inputCaste.value.trim() || 'General',
     designation: elements.inputDesignation.value.trim() || 'INLD Karyakarta',
+    cell: elements.inputCell ? elements.inputCell.value.trim() : '',
     state: elements.selectState.value.trim() || 'Haryana',
     district: elements.selectDistrict.value.trim(),
     city: elements.inputCity ? elements.inputCity.value.trim() : '',
@@ -305,6 +307,7 @@ const FIELD_GROUP_MAP = {
   inputConscode: 'group-conscode',
   inputAadhaar: 'group-aadhaar',
   inputDesignation: 'group-designation',
+  inputCell: 'group-cell',
   inputDob: 'group-dob',
   inputCaste: 'group-caste',
   inputBooth: 'group-booth',
@@ -559,6 +562,16 @@ function validateForm() {
     }
   }
 
+  // 9B. Cell validation
+  if (isFieldEnabled('inputCell') && elements.inputCell) {
+    const cellVal = elements.inputCell.value.trim();
+    if (isFieldRequired('inputCell') && !cellVal) {
+      markError('inputCell', 'प्रकोष्ठ / सेल (Cell) चुनना अनिवार्य है');
+    } else {
+      clearFieldError('inputCell');
+    }
+  }
+
   // 10. DOB validation
   const dobVal = elements.inputDob.value.trim();
   if (isFieldEnabled('inputDob')) {
@@ -664,7 +677,7 @@ function loadSampleData() {
   [
     'photoInput', 'inputName', 'inputFather', 'inputMobile', 'selectState',
     'selectDistrict', 'inputCity', 'inputVillage', 'inputConstituency', 'inputConscode',
-    'inputAadhaar', 'inputDesignation', 'inputDob', 'inputCaste', 'inputBooth',
+    'inputAadhaar', 'inputDesignation', 'inputCell', 'inputDob', 'inputCaste', 'inputBooth',
     'whatsappNumber', 'paymentScreenshot', 'inputUtrNumber', 'chkAgreeRules'
   ].forEach(clearFieldError);
 
@@ -679,6 +692,7 @@ function loadSampleData() {
   elements.inputConstituency.value = 'Sirsa';
   if (elements.inputConscode) elements.inputConscode.value = '45';
   elements.inputDesignation.value = 'State Social Media Coordinator';
+  if (elements.inputCell) elements.inputCell.value = 'Yuva Cell';
   elements.inputDob.value = '20/05/1973';
   elements.inputCaste.value = 'General';
   elements.inputBooth.value = '30';
@@ -999,7 +1013,7 @@ function setupEventListeners() {
   // Clear errors on field input/change
   const textFields = [
     'inputName', 'inputFather', 'inputCity', 'inputVillage', 'inputConstituency', 'inputConscode',
-    'inputAadhaar', 'inputDesignation', 'inputCaste', 'inputBooth', 'selectDistrict'
+    'inputAadhaar', 'inputDesignation', 'inputCell', 'inputCaste', 'inputBooth', 'selectDistrict'
   ];
   textFields.forEach((id) => {
     const el = document.getElementById(id);
@@ -1071,6 +1085,8 @@ function setupEventListeners() {
               ${cardData.city ? `<div class="summary-line"><span>शहर:</span> <strong>${cardData.city}</strong></div>` : ''}
               ${cardData.village ? `<div class="summary-line"><span>गांव:</span> <strong>${cardData.village}</strong></div>` : ''}
               <div class="summary-line"><span>विधानसभा क्षेत्र:</span> <strong>${cardData.constituency}</strong></div>
+              ${cardData.designation ? `<div class="summary-line"><span>पद / दायित्व:</span> <strong>${cardData.designation}</strong></div>` : ''}
+              ${cardData.cell ? `<div class="summary-line"><span>प्रकोष्ठ / सेल (Cell):</span> <strong style="color: #0b4d2e;">${cardData.cell}</strong></div>` : ''}
               ${cardData.aadhaarNo ? `<div class="summary-line"><span>आधार नंबर:</span> <strong>${cardData.aadhaarNo}</strong></div>` : ''}
               ${cardData.utrNumber ? `<div class="summary-line"><span>UPI Ref / UTR नंबर:</span> <strong style="color: #0b4d2e; font-family: monospace; letter-spacing: 1px;">${cardData.utrNumber}</strong></div>` : ''}
               <div class="summary-line"><span>सदस्यता शुल्क:</span> <strong style="color: #16a34a;">₹50 (UPI भुगतान रसीद सत्यापित)</strong></div>
@@ -1090,6 +1106,7 @@ function setupEventListeners() {
             `👨‍👦 *पिता का नाम:* ${cardData.father || '-'}\n` +
             `📱 *मोबाइल नंबर:* ${cardData.mobile}\n` +
             `🏛️ *विधानसभा क्षेत्र:* ${cardData.constituency || '-'}\n` +
+            (cardData.cell ? `🏷️ *प्रकोष्ठ / सेल:* ${cardData.cell}\n` : '') +
             `📍 *ज़िला एवं राज्य:* ${cardData.district || '-'}, ${cardData.state || 'Haryana'}\n` +
             (cardData.village ? `🏡 *गांव:* ${cardData.village}\n` : '') +
             (cardData.city ? `🏙️ *शहर:* ${cardData.city}\n` : '') +

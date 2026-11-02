@@ -300,14 +300,29 @@ export async function renderFrontCard(canvas, data) {
   rows.push(
     { label: 'Constituency:', val: data.constituency || '-' },
     { label: 'Designation:', val: data.designation || '-' },
+    { label: 'Cell:', val: data.cell || '-' },
     { label: 'DOB:', val: data.dob || '-' },
     { label: 'Caste:', val: data.caste || '-' },
     { label: 'Booth No:', val: data.booth || '-' },
     { label: 'Membership No:', val: membershipNo }
   );
 
-  let ty = rows.length > 10 ? 342 : 352;
-  const rowStep = rows.length > 10 ? 37 : 40.5;
+  let ty = 352;
+  let rowStep = 40.5;
+  let fontSize = 21;
+  let labelFontSize = 20;
+
+  if (rows.length >= 12) {
+    ty = 338;
+    rowStep = 33.5;
+    fontSize = 19;
+    labelFontSize = 18;
+  } else if (rows.length >= 10) {
+    ty = 342;
+    rowStep = 36;
+    fontSize = 20;
+    labelFontSize = 19;
+  }
   const valX = dx + 225;
 
   rows.forEach((row) => {
@@ -317,12 +332,12 @@ export async function renderFrontCard(canvas, data) {
 
     // Label
     ctx.fillStyle = '#0b4d2e';
-    ctx.font = '600 20px "Inter", Arial, sans-serif';
+    ctx.font = `600 ${labelFontSize}px "Inter", Arial, sans-serif`;
     ctx.fillText(row.label, dx, ty);
 
     // Value
     ctx.fillStyle = '#0f172a';
-    ctx.font = '700 21px "Outfit", "Inter", Arial, sans-serif';
+    ctx.font = `700 ${fontSize}px "Outfit", "Inter", Arial, sans-serif`;
     ctx.fillText(row.val, valX, ty);
 
     ctx.restore();
@@ -332,7 +347,7 @@ export async function renderFrontCard(canvas, data) {
   // 8. Dynamic QR Code in the bottom right corner
   if (data.showQr !== false) {
     try {
-      const qrData = `INLD MEMBER VERIFICATION\nName: ${data.name || ''}\nMobile: ${data.mobile || ''}\nDistrict: ${data.district || ''}\nMembership No: ${membershipNo}`;
+      const qrData = `INLD MEMBER VERIFICATION\nName: ${data.name || ''}\nMobile: ${data.mobile || ''}\nDistrict: ${data.district || ''}\nCell: ${data.cell || ''}\nMembership No: ${membershipNo}`;
       const qrDataUrl = await QRCode.toDataURL(qrData, {
         margin: 1,
         width: 140,

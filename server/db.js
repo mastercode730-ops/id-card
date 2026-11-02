@@ -192,6 +192,7 @@ export async function initDb() {
       constituency TEXT,
       conscode TEXT,
       designation TEXT,
+      cell TEXT,
       dob TEXT,
       caste TEXT,
       booth TEXT,
@@ -214,6 +215,7 @@ export async function initDb() {
   try { await exec(`ALTER TABLE card_logs ADD COLUMN village TEXT`); } catch (e) {}
   try { await exec(`ALTER TABLE card_logs ADD COLUMN status TEXT DEFAULT 'pending'`); } catch (e) {}
   try { await exec(`ALTER TABLE card_logs ADD COLUMN aadhaar_no TEXT`); } catch (e) {}
+  try { await exec(`ALTER TABLE card_logs ADD COLUMN cell TEXT`); } catch (e) {}
   try { await exec(`ALTER TABLE card_logs ADD COLUMN payment_screenshot_url TEXT`); } catch (e) {}
   try { await exec(`ALTER TABLE card_logs ADD COLUMN payment_amount INTEGER DEFAULT 50`); } catch (e) {}
   try { await exec(`ALTER TABLE card_logs ADD COLUMN utr_number TEXT`); } catch (e) {}
@@ -337,10 +339,11 @@ export async function initDb() {
       { key: 'inputConstituency', hi: 'विधानसभा क्षेत्र (Constituency)', en: 'Constituency', type: 'text', req: 1, enab: 1, order: 9, help: 'विधानसभा का नाम' },
       { key: 'inputConscode', hi: 'विधानसभा कोड (Constituency Code)', en: 'Constituency Code', type: 'text', req: 0, enab: 0, order: 10, help: 'जैसे: 45' },
       { key: 'inputDesignation', hi: 'पद / दायित्व (Designation)', en: 'Designation', type: 'text', req: 1, enab: 1, order: 11, help: 'पार्टी में पद' },
-      { key: 'inputDob', hi: 'जन्म तिथि (Date of Birth)', en: 'Date of Birth', type: 'text', req: 1, enab: 1, order: 12, help: 'DD/MM/YYYY' },
-      { key: 'inputCaste', hi: 'जाति / वर्ग (Caste)', en: 'Caste', type: 'text', req: 1, enab: 1, order: 13, help: 'जैसे: Jat, Gen(Brahmin), OBC...' },
-      { key: 'inputBooth', hi: 'बूथ नंबर (Booth No)', en: 'Booth Number', type: 'text', req: 1, enab: 1, order: 14, help: 'बूथ नंबर' },
-      { key: 'whatsappNumber', hi: 'WhatsApp नंबर (Card Delivery)', en: 'WhatsApp Number', type: 'tel', req: 1, enab: 1, order: 15, help: 'जिस नंबर पर कार्ड भेजना है' }
+      { key: 'inputCell', hi: 'प्रकोष्ठ / सेल (Cell)', en: 'Cell', type: 'select', req: 1, enab: 1, order: 12, help: 'पार्टी प्रकोष्ठ / सेल चुनें' },
+      { key: 'inputDob', hi: 'जन्म तिथि (Date of Birth)', en: 'Date of Birth', type: 'text', req: 1, enab: 1, order: 13, help: 'DD/MM/YYYY' },
+      { key: 'inputCaste', hi: 'जाति / वर्ग (Caste)', en: 'Caste', type: 'text', req: 1, enab: 1, order: 14, help: 'जैसे: Jat, Gen(Brahmin), OBC...' },
+      { key: 'inputBooth', hi: 'बूथ नंबर (Booth No)', en: 'Booth Number', type: 'text', req: 1, enab: 1, order: 15, help: 'बूथ नंबर' },
+      { key: 'whatsappNumber', hi: 'WhatsApp नंबर (Card Delivery)', en: 'WhatsApp Number', type: 'tel', req: 1, enab: 1, order: 16, help: 'जिस नंबर पर कार्ड भेजना है' }
     ];
 
     for (const f of defaultFields) {
@@ -381,6 +384,16 @@ export async function initDb() {
           ['inputAadhaar', 'आधार नंबर (Aadhaar No)', 'Aadhaar Number', 'text', 0, 1, 16, '12 अंकों का आधार नंबर']
         );
         console.log('✓ Added inputAadhaar to existing field_configs');
+      }
+
+      const cellField = await get(`SELECT id FROM field_configs WHERE field_key = 'inputCell'`);
+      if (!cellField) {
+        await run(
+          `INSERT INTO field_configs (field_key, label_hi, label_en, field_type, is_required, is_enabled, display_order, help_text)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          ['inputCell', 'प्रकोष्ठ / सेल (Cell)', 'Cell', 'select', 1, 1, 12, 'पार्टी प्रकोष्ठ / सेल चुनें']
+        );
+        console.log('✓ Added inputCell to existing field_configs');
       }
 
       const paymentField = await get(`SELECT id FROM field_configs WHERE field_key = 'paymentScreenshot'`);

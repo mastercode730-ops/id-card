@@ -455,10 +455,10 @@ app.post('/api/cards', optionalUserAuth, async (req, res) => {
     const result = await run(
       `INSERT INTO card_logs (
         user_id, membership_no, name, father_name, mobile, state, district,
-        city, village, constituency, conscode, designation, dob, caste, booth,
+        city, village, constituency, conscode, designation, cell, dob, caste, booth,
         whatsapp_number, photo_url, status, aadhaar_no, payment_screenshot_url,
         payment_amount, utr_number, ip_address
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         user ? user.id : null,
         uniqueMembershipNo,
@@ -472,6 +472,7 @@ app.post('/api/cards', optionalUserAuth, async (req, res) => {
         data.constituency || '',
         data.conscode || '',
         data.designation || '',
+        data.cell || '',
         data.dob || '',
         data.caste || '',
         data.booth || '',
@@ -501,7 +502,7 @@ app.post('/api/cards', optionalUserAuth, async (req, res) => {
 // Admin: Get all card logs with advanced filters (caste, village, district, constituency, dates)
 app.get('/api/cards', authenticateAdmin, async (req, res) => {
   try {
-    const { q, state, district, constituency, caste, village, dob, dateFrom, dateTo, status, limit = 200, offset = 0 } = req.query;
+    const { q, state, district, constituency, caste, cell, village, dob, dateFrom, dateTo, status, limit = 200, offset = 0 } = req.query;
 
     let sql = `SELECT * FROM card_logs WHERE 1=1`;
     const params = [];
@@ -512,9 +513,9 @@ app.get('/api/cards', authenticateAdmin, async (req, res) => {
     }
 
     if (q) {
-      sql += ` AND (name LIKE ? OR mobile LIKE ? OR father_name LIKE ? OR constituency LIKE ? OR caste LIKE ? OR village LIKE ? OR city LIKE ?)`;
+      sql += ` AND (name LIKE ? OR mobile LIKE ? OR father_name LIKE ? OR constituency LIKE ? OR caste LIKE ? OR cell LIKE ? OR village LIKE ? OR city LIKE ?)`;
       const searchParam = `%${q.trim()}%`;
-      params.push(searchParam, searchParam, searchParam, searchParam, searchParam, searchParam, searchParam);
+      params.push(searchParam, searchParam, searchParam, searchParam, searchParam, searchParam, searchParam, searchParam);
     }
 
     if (state && state !== 'all') {
@@ -535,6 +536,11 @@ app.get('/api/cards', authenticateAdmin, async (req, res) => {
     if (caste && caste !== 'all') {
       sql += ` AND caste = ?`;
       params.push(caste);
+    }
+
+    if (cell && cell !== 'all') {
+      sql += ` AND cell = ?`;
+      params.push(cell);
     }
 
     if (village && village !== 'all') {
@@ -592,7 +598,7 @@ app.put('/api/cards/:id', authenticateAdmin, async (req, res) => {
       `UPDATE card_logs
        SET name = ?, father_name = ?, mobile = ?, state = ?, district = ?,
            city = ?, village = ?, constituency = ?, conscode = ?,
-           designation = ?, dob = ?, caste = ?, booth = ?,
+           designation = ?, cell = ?, dob = ?, caste = ?, booth = ?,
            whatsapp_number = ?, photo_url = ?, status = ?, aadhaar_no = ?,
            payment_screenshot_url = ?, utr_number = ?
        WHERE id = ?`,
@@ -607,6 +613,7 @@ app.put('/api/cards/:id', authenticateAdmin, async (req, res) => {
         d.constituency !== undefined ? d.constituency : existing.constituency,
         d.conscode !== undefined ? d.conscode : existing.conscode,
         d.designation !== undefined ? d.designation : existing.designation,
+        d.cell !== undefined ? d.cell : existing.cell,
         d.dob !== undefined ? d.dob : existing.dob,
         d.caste !== undefined ? d.caste : existing.caste,
         d.booth !== undefined ? d.booth : existing.booth,
