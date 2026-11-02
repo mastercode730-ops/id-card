@@ -968,7 +968,7 @@ window.generateAdminCard = async function(id) {
       membershipNo: log.membership_no,
       photoImg: photoImg,
       showWatermark: true,
-      showQr: true
+      showQr: false
     };
 
     await Promise.all([

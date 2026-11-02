@@ -247,7 +247,7 @@ function getFormData() {
     photoZoom: 1.0,
     photoOffsetY: 0,
     showWatermark: true,
-    showQr: true
+    showQr: false
   };
 }
 
@@ -627,11 +627,11 @@ function validateForm() {
     clearFieldError('chkAgreeRules');
   }
 
-  // 15. Payment Confirmation Screenshot & UTR validation
+  // 15. Payment Confirmation Screenshot & UTR validation (Bypassed if disabled/not required)
   const isPaymentReq = isFieldRequired('paymentScreenshot');
   const isPaymentEnab = isFieldEnabled('paymentScreenshot');
 
-  if (state.isSampleMode || !isPaymentEnab) {
+  if (state.isSampleMode || !isPaymentEnab || !isPaymentReq) {
     clearFieldError('paymentScreenshot');
     clearFieldError('inputUtrNumber');
   } else if (isPaymentReq && !state.paymentScreenshot) {
@@ -1089,7 +1089,7 @@ function setupEventListeners() {
               ${cardData.cell ? `<div class="summary-line"><span>प्रकोष्ठ / सेल (Cell):</span> <strong style="color: #0b4d2e;">${cardData.cell}</strong></div>` : ''}
               ${cardData.aadhaarNo ? `<div class="summary-line"><span>आधार नंबर:</span> <strong>${cardData.aadhaarNo}</strong></div>` : ''}
               ${cardData.utrNumber ? `<div class="summary-line"><span>UPI Ref / UTR नंबर:</span> <strong style="color: #0b4d2e; font-family: monospace; letter-spacing: 1px;">${cardData.utrNumber}</strong></div>` : ''}
-              <div class="summary-line"><span>सदस्यता शुल्क:</span> <strong style="color: #16a34a;">₹50 (UPI भुगतान रसीद सत्यापित)</strong></div>
+              ${cardData.paymentScreenshot ? `<div class="summary-line"><span>सदस्यता शुल्क:</span> <strong style="color: #16a34a;">₹50 (UPI भुगतान रसीद)</strong></div>` : ''}
             `;
           }
 
@@ -1112,7 +1112,7 @@ function setupEventListeners() {
             (cardData.city ? `🏙️ *शहर:* ${cardData.city}\n` : '') +
             (cardData.aadhaarNo ? `🆔 *आधार नंबर:* ${cardData.aadhaarNo}\n` : '') +
             (cardData.utrNumber ? `💳 *UPI Ref / UTR No:* ${cardData.utrNumber}\n` : '') +
-            `💰 *सदस्यता शुल्क:* ₹50 (सत्यापित)\n\n` +
+            (cardData.paymentScreenshot ? `💰 *सदस्यता शुल्क:* ₹50\n\n` : '\n') +
             `इनेलो पार्टी एडमिन द्वारा सत्यापन के पश्चात आपका आधिकारिक सदस्यता पहचान पत्र जारी कर दिया जाएगा।\n\n` +
             `_चौधरी देवी लाल अमर रहें • जय जवान जय किसान_`
           );

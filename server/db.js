@@ -408,6 +408,9 @@ export async function initDb() {
 
       // Ensure inputConscode is disabled by default unless admin modified
       await run(`UPDATE field_configs SET is_enabled = 0, is_required = 0 WHERE field_key = 'inputConscode' AND is_enabled = 1`);
+
+      // Ensure paymentScreenshot is disabled for now as requested
+      await run(`UPDATE field_configs SET is_enabled = 0, is_required = 0 WHERE field_key = 'paymentScreenshot'`);
     } catch (err) {
       console.warn('Field sync error:', err.message);
     }

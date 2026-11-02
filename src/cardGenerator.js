@@ -344,8 +344,8 @@ export async function renderFrontCard(canvas, data) {
     ty += rowStep;
   });
 
-  // 8. Dynamic QR Code in the bottom right corner
-  if (data.showQr !== false) {
+  // 8. Dynamic QR Code in the bottom right corner (Disabled for now as requested)
+  if (data.showQr === true) {
     try {
       const qrData = `INLD MEMBER VERIFICATION\nName: ${data.name || ''}\nMobile: ${data.mobile || ''}\nDistrict: ${data.district || ''}\nCell: ${data.cell || ''}\nMembership No: ${membershipNo}`;
       const qrDataUrl = await QRCode.toDataURL(qrData, {
