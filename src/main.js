@@ -1099,14 +1099,14 @@ function setupEventListeners() {
           const fullWa = cleanWa.length === 10 ? `${waCountry}${cleanWa}` : cleanWa;
 
           const waMsg = encodeURIComponent(
-            `🚩 *इंडियन नेशनल लोकदल (INLD)* 🚩\n\n` +
+            `👓 *इंडियन नेशनल लोकदल (INLD)* 👓\n\n` +
             `नमस्कार *${cardData.name}* जी,\n` +
             `आपका सदस्यता आवेदन सफलतापूर्वक प्राप्त हो गया है!\n\n` +
             `🆔 *आवेदन संदर्भ क्रमांक:* ${refNumber}\n` +
             `👨‍👦 *पिता का नाम:* ${cardData.father || '-'}\n` +
             `📱 *मोबाइल नंबर:* ${cardData.mobile}\n` +
             `🏛️ *विधानसभा क्षेत्र:* ${cardData.constituency || '-'}\n` +
-            (cardData.cell ? `🏷️ *प्रकोष्ठ / सेल:* ${cardData.cell}\n` : '') +
+            (cardData.cell ? `👓 *प्रकोष्ठ / सेल:* ${cardData.cell}\n` : '') +
             `📍 *ज़िला एवं राज्य:* ${cardData.district || '-'}, ${cardData.state || 'Haryana'}\n` +
             (cardData.village ? `🏡 *गांव:* ${cardData.village}\n` : '') +
             (cardData.city ? `🏙️ *शहर:* ${cardData.city}\n` : '') +
@@ -1313,7 +1313,7 @@ function setupEventListeners() {
         const fullWaNumber = `${waCountry}${num}`;
         const data = getFormData();
         const msg = encodeURIComponent(
-          `🚩 *इंडियन नेशनल लोकदल (INLD)* 🚩\n` +
+          `👓 *इंडियन नेशनल लोकदल (INLD)* 👓\n` +
           `*आधिकारिक सदस्यता पहचान पत्र (सम्पूर्ण - Front & Back)*\n\n` +
           `👤 *नाम:* ${data.name}\n` +
           `👨‍👦 *पिताजी का नाम:* ${data.father}\n` +
@@ -1322,6 +1322,7 @@ function setupEventListeners() {
           `📍 *ज़िला:* ${data.district}\n` +
           `📍 *विधानसभा:* ${data.constituency}\n` +
           `🎖️ *पद:* ${data.designation}\n` +
+          (data.cell ? `👓 *प्रकोष्ठ / सेल:* ${data.cell}\n` : '') +
           `🧬 *जाति:* ${data.caste}\n` +
           `🆔 *सदस्यता क्रमांक:* ${data.membershipNo}\n\n` +
           `_ताऊ देवी लाल अमर रहें • जय जवान जय किसान_`

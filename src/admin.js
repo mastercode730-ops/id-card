@@ -682,7 +682,7 @@ el.logStatusFilter?.querySelectorAll('.filter-pill').forEach(pill => {
     el.logStatusFilter.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
     pill.classList.add('active');
     state.activeStatusFilter = pill.dataset.status || 'all';
-    renderCardLogsTable(state.cardLogs);
+    loadCardLogs();
   });
 });
 
@@ -718,26 +718,87 @@ el.btnRefreshLogs?.addEventListener('click', () => {
   showToast('कार्ड आवेदन सूची रीफ़्रेश हो गई!');
 });
 
-// Helper to get logs filtered by current active status tab
-function getActiveFilteredLogs() {
+// Helper to get all filtered logs according to current UI filters without pagination limit
+async function getExportLogs() {
+  const q = el.logSearchInput ? el.logSearchInput.value.trim() : '';
+  const dist = el.logFilterDistrict ? el.logFilterDistrict.value : 'all';
+  const constituency = el.logFilterConstituency ? el.logFilterConstituency.value.trim() : '';
+  const caste = el.logFilterCaste ? el.logFilterCaste.value.trim() : '';
+  const cell = el.logFilterCell ? el.logFilterCell.value.trim() : '';
+  const village = el.logFilterVillage ? el.logFilterVillage.value.trim() : '';
+  const dob = el.logFilterDob ? el.logFilterDob.value.trim() : '';
+  const dateFrom = el.logFilterDateFrom ? el.logFilterDateFrom.value : '';
+  const dateTo = el.logFilterDateTo ? el.logFilterDateTo.value : '';
+
+  const params = new URLSearchParams();
+  if (q) params.append('q', q);
+  if (dist && dist !== 'all') params.append('district', dist);
+  if (constituency && constituency !== 'all') params.append('constituency', constituency);
+  if (caste && caste !== 'all') params.append('caste', caste);
+  if (cell && cell !== 'all') params.append('cell', cell);
+  if (village && village !== 'all') params.append('village', village);
+  if (dob) params.append('dob', dob);
+  if (dateFrom) params.append('dateFrom', dateFrom);
+  if (dateTo) params.append('dateTo', dateTo);
+  if (state.activeStatusFilter && state.activeStatusFilter !== 'all') {
+    params.append('status', state.activeStatusFilter);
+  }
+  params.append('limit', '50000'); // Export all matching records
+
+  try {
+    const data = await authFetch(`${API_BASE}/cards?${params.toString()}`);
+    if (data && data.success && Array.isArray(data.logs)) {
+      return data.logs;
+    }
+  } catch (err) {
+    console.warn('Export fetch fallback to local state:', err);
+  }
+
+  // Fallback to client-side filtered logs
   let logs = state.cardLogs || [];
   if (state.activeStatusFilter && state.activeStatusFilter !== 'all') {
     logs = logs.filter(l => (l.status || 'pending') === state.activeStatusFilter);
   }
+  if (cell && cell !== 'all') {
+    logs = logs.filter(l => (l.cell || '').toLowerCase() === cell.toLowerCase());
+  }
+  if (caste && caste !== 'all') {
+    logs = logs.filter(l => (l.caste || '').toLowerCase() === caste.toLowerCase());
+  }
+  if (dist && dist !== 'all') {
+    logs = logs.filter(l => (l.district || '').toLowerCase() === dist.toLowerCase());
+  }
   return logs;
 }
 
-// Export CSV (Filtered by active tab / status)
-el.btnExportCsv.addEventListener('click', () => {
-  const filteredLogs = getActiveFilteredLogs();
-  if (filteredLogs.length === 0) {
-    showToast('इस टैब में एक्सपोर्ट करने के लिए कोई रिकॉर्ड उपलब्ध नहीं है', false);
+// Generate a descriptive suffix for export files based on currently applied filters
+function getExportFilterSuffix() {
+  const parts = [];
+  if (el.logFilterCell && el.logFilterCell.value && el.logFilterCell.value !== 'all') {
+    parts.push(el.logFilterCell.value.replace(/\s+/g, '_'));
+  }
+  if (el.logFilterDistrict && el.logFilterDistrict.value && el.logFilterDistrict.value !== 'all') {
+    parts.push(el.logFilterDistrict.value.replace(/\s+/g, '_'));
+  }
+  if (el.logFilterCaste && el.logFilterCaste.value && el.logFilterCaste.value !== 'all') {
+    parts.push(el.logFilterCaste.value.replace(/\s+/g, '_'));
+  }
+  if (state.activeStatusFilter && state.activeStatusFilter !== 'all') {
+    parts.push(state.activeStatusFilter);
+  }
+  return parts.length > 0 ? parts.join('_') : 'All';
+}
+
+// Export CSV (Filtered by active filter controls)
+el.btnExportCsv.addEventListener('click', async () => {
+  showToast('डाउनलोड हेतु डेटा तैयार किया जा रहा है...');
+  const filteredLogs = await getExportLogs();
+  if (!filteredLogs || filteredLogs.length === 0) {
+    showToast('चयनित फ़िल्टर के अनुसार कोई रिकॉर्ड उपलब्ध नहीं है', false);
     return;
   }
 
-  let statusSuffix = 'All';
-  if (state.activeStatusFilter === 'pending') statusSuffix = 'Pending';
-  else if (state.activeStatusFilter === 'generated') statusSuffix = 'Generated';
+  const statusSuffix = getExportFilterSuffix();
 
   const headers = ['ID', 'Membership No', 'Name', 'Father Name', 'Mobile', 'WhatsApp', 'State', 'District', 'City', 'Village', 'Constituency', 'Conscode', 'Designation', 'Cell', 'DOB', 'Caste', 'Booth', 'Status', 'Created At'];
   const rows = filteredLogs.map(l => [
@@ -770,14 +831,15 @@ el.btnExportCsv.addEventListener('click', () => {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  showToast(`✓ CSV (${statusSuffix}) सफलतापूर्वक डाउनलोड हो गई!`);
+  showToast(`✓ CSV (${filteredLogs.length} रिकॉर्ड) सफलतापूर्वक डाउनलोड हो गई!`);
 });
 
-// Export Records as PDF Table (Filtered by Active Tab & High Visibility Headers)
-function exportAllRecordsPdf() {
-  const filteredLogs = getActiveFilteredLogs();
+// Export Records as PDF Table (Filtered by Active Filters & with Cell & Caste Columns)
+async function exportAllRecordsPdf() {
+  showToast('PDF रिपोर्ट तैयार की जा रही है...');
+  const filteredLogs = await getExportLogs();
   if (!filteredLogs || filteredLogs.length === 0) {
-    showToast('इस टैब में एक्सपोर्ट करने के लिए कोई रिकॉर्ड उपलब्ध नहीं है', false);
+    showToast('चयनित फ़िल्टर के अनुसार कोई रिकॉर्ड उपलब्ध नहीं है', false);
     return;
   }
 
@@ -788,41 +850,57 @@ function exportAllRecordsPdf() {
       format: 'a4' // 297mm x 210mm
     });
 
-    let statusSuffix = 'All';
-    if (state.activeStatusFilter === 'pending') {
-      statusSuffix = 'Pending';
-    } else if (state.activeStatusFilter === 'generated') {
-      statusSuffix = 'Generated';
-    }
+    const statusSuffix = getExportFilterSuffix();
 
-    // Document Header
+    // Document Header Title
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(22);
-    doc.setTextColor(15, 23, 42);
-    doc.text('Candidate / Member Details', 148.5, 20, { align: 'center' });
+    doc.setFontSize(20);
+    doc.setTextColor(11, 77, 46);
+    doc.text('INDIAN NATIONAL LOKDAL (INLD) - MEMBER DETAILS', 148.5, 16, { align: 'center' });
 
-    // Columns: S.No.(14), Name(40), Father Name(40), District(30), Constituency(35), Village(35), Phone Number(35), Photo(25)
-    // Total = 254mm, left margin = (297 - 254) / 2 = 21.5mm
-    const startX = 21.5;
-    const colWidths = [14, 40, 40, 30, 35, 35, 35, 25];
+    // Active Filter Subtitle
+    const activeFiltersText = [];
+    if (el.logFilterCell && el.logFilterCell.value && el.logFilterCell.value !== 'all') {
+      activeFiltersText.push(`Cell: ${el.logFilterCell.value}`);
+    }
+    if (el.logFilterDistrict && el.logFilterDistrict.value && el.logFilterDistrict.value !== 'all') {
+      activeFiltersText.push(`District: ${el.logFilterDistrict.value}`);
+    }
+    if (el.logFilterCaste && el.logFilterCaste.value && el.logFilterCaste.value !== 'all') {
+      activeFiltersText.push(`Caste: ${el.logFilterCaste.value}`);
+    }
+    if (state.activeStatusFilter && state.activeStatusFilter !== 'all') {
+      activeFiltersText.push(`Status: ${state.activeStatusFilter === 'generated' ? 'Generated' : 'Pending'}`);
+    }
+    const filterSub = activeFiltersText.length > 0
+      ? `Filter: ${activeFiltersText.join(' | ')} (Total: ${filteredLogs.length} Records)`
+      : `All Registered Members (Total: ${filteredLogs.length} Records)`;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text(filterSub, 148.5, 23, { align: 'center' });
+
+    // Table Columns:
+    // S.No.(12), Name(32), Father Name(32), Phone(26), District(24), Constituency(26), Village/City(26), Cell(34), Caste(20), Photo(24)
+    // Total = 256mm, left margin = (297 - 256) / 2 = 20.5mm
+    const startX = 20.5;
+    const colWidths = [12, 32, 32, 26, 24, 26, 26, 34, 20, 24];
     const totalTableWidth = colWidths.reduce((sum, w) => sum + w, 0);
-    const headers = ['S.No.', 'Name', 'Father Name', 'District', 'Constituency', 'Village', 'Phone Number', 'Photo'];
+    const headers = ['S.No.', 'Name', 'Father Name', 'Phone Number', 'District', 'Constituency', 'Village/City', 'Cell / प्रकोष्ठ', 'Caste', 'Photo'];
 
-    let currentY = 32;
+    let currentY = 28;
     const rowHeight = 12;
 
     function drawTableHeader(y) {
-      // 1. Fill entire header background with light blue (#e0f2fe)
       doc.setFillColor(224, 242, 254);
       doc.rect(startX, y, totalTableWidth, 9, 'F');
 
-      // 2. Stroke individual cell borders with thin black line ('D' - draw outline only)
       doc.setDrawColor(0, 0, 0);
       doc.setLineWidth(0.3);
 
-      // 3. Render header text in bold dark font
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
+      doc.setFontSize(8.5);
       doc.setTextColor(15, 23, 42);
 
       let x = startX;
@@ -843,28 +921,35 @@ function exportAllRecordsPdf() {
         currentY = drawTableHeader(currentY);
       }
 
+      const locArr = [];
+      if (log.village) locArr.push(log.village);
+      if (log.city) locArr.push(log.city);
+      const locStr = locArr.join(', ') || '-';
+
       const rowData = [
         String(index + 1),
         log.name || '-',
         log.father_name || '-',
+        log.mobile || '-',
         log.district || '-',
         log.constituency || '-',
-        log.village || log.city || '-',
-        log.mobile || '-',
+        locStr,
+        log.cell || '-',
+        log.caste || '-',
         'Photo'
       ];
 
       doc.setDrawColor(0, 0, 0);
       doc.setLineWidth(0.2);
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8.5);
+      doc.setFontSize(8);
       doc.setTextColor(0, 0, 0);
 
       let x = startX;
       for (let i = 0; i < rowData.length; i++) {
         doc.rect(x, currentY, colWidths[i], rowHeight, 'D');
 
-        if (i === 7) {
+        if (i === 9) {
           let photoRendered = false;
           if (log.photo_url && (log.photo_url.startsWith('data:image/') || log.photo_url.startsWith('http'))) {
             try {
@@ -880,8 +965,8 @@ function exportAllRecordsPdf() {
         } else if (i === 0) {
           doc.text(rowData[i], x + colWidths[i] / 2, currentY + rowHeight / 2 + 1.5, { align: 'center' });
         } else {
-          const truncated = doc.splitTextToSize(rowData[i], colWidths[i] - 4);
-          doc.text(truncated, x + 2, currentY + rowHeight / 2 + 1);
+          const truncated = doc.splitTextToSize(rowData[i], colWidths[i] - 3);
+          doc.text(truncated, x + 1.5, currentY + rowHeight / 2 + 1);
         }
 
         x += colWidths[i];
@@ -891,7 +976,7 @@ function exportAllRecordsPdf() {
     });
 
     doc.save(`INLD_Candidate_Member_Details_${statusSuffix}_${new Date().toISOString().slice(0, 10)}.pdf`);
-    showToast(`✓ सदस्य विवरण तालिका (${statusSuffix}) PDF डाउनलोड हो गई!`);
+    showToast(`✓ सदस्य विवरण तालिका PDF (${filteredLogs.length} रिकॉर्ड) डाउनलोड हो गई!`);
   } catch (err) {
     console.error('Export all PDF error:', err);
     showToast('PDF डाउनलोड करने में त्रुटि', false);
@@ -1077,13 +1162,14 @@ el.btnAdminShareWa.addEventListener('click', () => {
 
   const fullNum = rawNum.length === 10 ? `91${rawNum}` : rawNum;
   const msg = encodeURIComponent(
-    `🚩 *इंडियन नेशनल लोकदल (INLD)* 🚩\n\n` +
+    `👓 *इंडियन नेशनल लोकदल (INLD)* 👓\n\n` +
     `नमस्कार *${log.name}* जी,\n` +
     `आपका आधिकारिक सदस्यता पहचान पत्र (INLD Identity Card) तैयार हो गया है!\n\n` +
     `🆔 *सदस्यता क्रमांक:* ${log.membership_no || 'INLD'}\n` +
     `📍 *विधानसभा:* ${log.constituency || '-'}\n` +
-    `🎖️ *पद:* ${log.designation || 'सक्रिय सदस्य'}\n\n` +
-    `_चौधरी देवी लाल अमर रहें • जय जवान जय किसान_`
+    `🎖️ *पद:* ${log.designation || 'सक्रिय सदस्य'}\n` +
+    (log.cell ? `👓 *प्रकोष्ठ / सेल:* ${log.cell}\n` : '') +
+    `\n_चौधरी देवी लाल अमर रहें • जय जवान जय किसान_`
   );
 
   window.open(`https://wa.me/${fullNum}?text=${msg}`, '_blank');

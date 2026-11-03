@@ -513,44 +513,55 @@ app.get('/api/cards', authenticateAdmin, async (req, res) => {
     }
 
     if (q) {
-      sql += ` AND (name LIKE ? OR mobile LIKE ? OR father_name LIKE ? OR constituency LIKE ? OR caste LIKE ? OR cell LIKE ? OR village LIKE ? OR city LIKE ?)`;
-      const searchParam = `%${q.trim()}%`;
-      params.push(searchParam, searchParam, searchParam, searchParam, searchParam, searchParam, searchParam, searchParam);
+      const qVal = `%${q.trim().toLowerCase()}%`;
+      sql += ` AND (
+        LOWER(name) LIKE ? OR
+        LOWER(mobile) LIKE ? OR
+        LOWER(father_name) LIKE ? OR
+        LOWER(constituency) LIKE ? OR
+        LOWER(caste) LIKE ? OR
+        LOWER(cell) LIKE ? OR
+        LOWER(village) LIKE ? OR
+        LOWER(city) LIKE ? OR
+        LOWER(membership_no) LIKE ?
+      )`;
+      params.push(qVal, qVal, qVal, qVal, qVal, qVal, qVal, qVal, qVal);
     }
 
     if (state && state !== 'all') {
-      sql += ` AND state = ?`;
+      sql += ` AND LOWER(TRIM(state)) = LOWER(TRIM(?))`;
       params.push(state);
     }
 
     if (district && district !== 'all') {
-      sql += ` AND district = ?`;
+      sql += ` AND LOWER(TRIM(district)) = LOWER(TRIM(?))`;
       params.push(district);
     }
 
     if (constituency && constituency !== 'all') {
-      sql += ` AND constituency = ?`;
-      params.push(constituency);
+      sql += ` AND (LOWER(TRIM(constituency)) = LOWER(TRIM(?)) OR LOWER(constituency) LIKE ? OR LOWER(conscode) LIKE ?)`;
+      params.push(constituency, `%${constituency.trim().toLowerCase()}%`, `%${constituency.trim().toLowerCase()}%`);
     }
 
     if (caste && caste !== 'all') {
-      sql += ` AND caste = ?`;
+      sql += ` AND LOWER(TRIM(caste)) = LOWER(TRIM(?))`;
       params.push(caste);
     }
 
     if (cell && cell !== 'all') {
-      sql += ` AND cell = ?`;
+      sql += ` AND LOWER(TRIM(cell)) = LOWER(TRIM(?))`;
       params.push(cell);
     }
 
     if (village && village !== 'all') {
-      sql += ` AND (village LIKE ? OR city LIKE ?)`;
-      params.push(`%${village.trim()}%`, `%${village.trim()}%`);
+      const vVal = `%${village.trim().toLowerCase()}%`;
+      sql += ` AND (LOWER(village) LIKE ? OR LOWER(city) LIKE ?)`;
+      params.push(vVal, vVal);
     }
 
     if (dob) {
-      sql += ` AND dob LIKE ?`;
-      params.push(`%${dob.trim()}%`);
+      sql += ` AND LOWER(dob) LIKE ?`;
+      params.push(`%${dob.trim().toLowerCase()}%`);
     }
 
     if (dateFrom) {
